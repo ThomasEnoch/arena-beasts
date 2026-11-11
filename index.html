@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Beasts</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="menu" class="screen">
+  <header>
+    <h1>ARENA BEASTS</h1>
+    <p>Real-time creature battles. Select 6 creatures for your team.</p>
+  </header>
+  <div id="online" aria-label="Online play">
+    <b>ONLINE</b>
+    <input id="pname" maxlength="12" placeholder="Your name" aria-label="Your name" autocomplete="off">
+    <button id="create">Create room</button>
+    <span id="linkbox" class="hidden"><input id="link" readonly aria-label="Room link"><button id="copy">Copy link</button></span>
+    <span id="nstatus"></span>
+    <button id="leave" class="hidden">Leave room</button>
+  </div>
+  <main>
+    <section id="grid" aria-label="Creatures"></section>
+    <aside id="detail" aria-label="Creature details"></aside>
+  </main>
+  <footer>
+    <div id="team" aria-label="Your team"></div>
+    <div id="opts">
+      <div id="diff" role="group" aria-label="Difficulty">
+        <button data-d="easy">Easy</button><button data-d="normal" class="on">Normal</button><button data-d="hard">Hard</button>
+      </div>
+      <button id="random">Random team</button>
+      <button id="clear">Clear</button>
+      <button id="start" class="primary" disabled>Select 6 more</button>
+    </div>
+    <div id="help">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+      <span><kbd>Mouse</kbd> Aim</span>
+      <span><kbd>1</kbd>–<kbd>4</kbd> Moves (<kbd>LMB</kbd> = 1, <kbd>RMB</kbd> = 2)</span>
+      <span><kbd>R</kbd> Signature power</span>
+      <span><kbd>Space</kbd> Dodge</span>
+      <span><kbd>Shift</kbd> Guard (hold)</span>
+      <span><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd> Switch</span>
+      <span><kbd>Tab</kbd> Auto</span>
+      <span><kbd>P</kbd> Pause</span>
+      <span><kbd>M</kbd> Mute</span>
+    </div>
+  </footer>
+</div>
+
+<div id="result" class="screen hidden"></div>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="js/net.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
