@@ -58,6 +58,22 @@ button.primary:disabled { background: var(--panel2) !important; border-color: va
 #help summary { display: flex; align-items: center; list-style: none; cursor: pointer; }
 #help summary::-webkit-details-marker { display: none; }
 #help > div { position: absolute; right: 0; top: 46px; z-index: 5; width: 300px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; background: var(--panel); border: 2px solid var(--line); border-radius: var(--r); font-size: 14px; color: var(--sub); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+/* Controls panel: 2 keys for each action. The player clicks a key box and gives a new input. */
+#help > div { width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 76px); overflow: auto; gap: 8px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#khint { margin: 0; min-height: 38px; font-size: 14px; line-height: 1.3; color: var(--sub); }
+#khint.warn { color: var(--hi2); }
+#keys { columns: 2; column-gap: 22px; }
+#keys section { break-inside: avoid; margin-bottom: 8px; }
+#keys h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--hi); }
+.krow { display: grid; grid-template-columns: minmax(0, 1fr) 70px 70px; gap: 5px; align-items: center; height: 31px; font-size: 14px; color: var(--text); }
+.krow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kbtn { height: 27px; padding: 0 4px; background: var(--panel2); border: 2px solid var(--line); border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; }
+.kbtn:hover { border-color: #fff; }
+.kbtn.none { color: var(--dim); }
+.kbtn.wait { background: var(--hi); border-color: var(--hi2); color: #231a00; }
+.kfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; border-top: 2px solid var(--line); }
+#kreset { height: 34px; padding: 0 14px; background: var(--panel2); border: 2px solid var(--line); border-radius: var(--r); font-size: 14px; font-weight: 600; color: var(--text); }
+#kreset:hover { border-color: #fff; }
 kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3px; text-align: center; background: var(--panel2); border: 2px solid var(--line); border-bottom-width: 3px; border-radius: 6px; font: 600 12px var(--font); color: var(--text); }
 
 #menu main { display: grid; grid-template-columns: minmax(380px, 40fr) minmax(300px, 34fr) minmax(300px, 26fr); gap: 12px; flex: 1; min-height: 0; }

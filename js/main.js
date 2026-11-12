@@ -122,6 +122,65 @@
     $('sbtn').classList.toggle('on', storyOpen);
     if (storyOpen) renderStory(detailId);
   }
+  // ---- Controls panel: the player changes the input of each action -------------
+  var capture = null, skipClick = false, HOLD = { up: 1, down: 1, left: 1, right: 1, guard: 1 };
+  function escHtml(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function drawKeys() {
+    var html = '', grp = '';
+    G.KEYS.ACTIONS.forEach(function (a) {
+      var m = G.KEYS.get(a[0]);
+      if (a[2] !== grp) { html += (grp ? '</section>' : '') + '<section><h4>' + a[2] + '</h4>'; grp = a[2]; }
+      html += '<div class="krow"><span>' + a[1] + '</span>' + [0, 1].map(function (sl) {
+        return '<button type="button" class="kbtn' + (m[sl] ? '' : ' none') + '" data-a="' + a[0] + '" data-s="' + sl + '" aria-label="' + a[1] + ', key ' + (sl + 1) + '">' + escHtml(G.KEYS.label(m[sl])) + '</button>';
+      }).join('') + '</div>';
+    });
+    $('keys').innerHTML = html + '</section>';
+  }
+  function keyHint(t, warn) { $('khint').textContent = t || 'Click a key to change it. Each action has 2 keys.'; $('khint').classList.toggle('warn', !!warn); }
+  function endCapture(msg, warn) { capture = null; drawKeys(); keyHint(msg, warn); }
+  function bind(code) {
+    var c = capture, lost;
+    if (!c) return;
+    if (HOLD[c.id] && code.indexOf('Wheel') === 0) { keyHint('The wheel cannot hold an action. Use a key or a mouse button for "' + G.KEYS.name(c.id) + '".', true); return; }
+    lost = G.KEYS.set(c.id, c.slot, code);
+    endCapture(lost ? G.KEYS.label(code) + ' was the key of "' + G.KEYS.name(lost) + '". It is now the key of "' + G.KEYS.name(c.id) + '".' : '', !!lost);
+    G.sfx('ui');
+  }
+  function initKeyPanel() {
+    drawKeys(); keyHint('');
+    $('keys').addEventListener('click', function (e) {
+      var el = e.target.closest ? e.target.closest('.kbtn') : null;
+      if (skipClick) { skipClick = false; return; }
+      if (!el) return;
+      capture = { id: el.dataset.a, slot: +el.dataset.s };
+      drawKeys();
+      el = $('keys').querySelector('.kbtn[data-a="' + capture.id + '"][data-s="' + capture.slot + '"]');
+      el.classList.add('wait'); el.textContent = 'Press…'; capture.el = el;
+      keyHint('Press a key, turn the wheel, or click the yellow box with a mouse button. Esc = cancel. Delete = no key.');
+    });
+    $('keys').addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    $('kreset').onclick = function () { G.KEYS.reset(); endCapture('All keys are the default keys again.'); G.sfx('ui'); };
+    $('help').addEventListener('toggle', function () { if (!$('help').open && capture) endCapture(''); });
+    // while the panel waits for an input, these listeners take it before all others
+    window.addEventListener('keydown', function (e) {
+      if (!capture) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      var k = G.KEYS.norm(e.code);
+      if (k === 'Escape') endCapture('');
+      else if (k === 'Delete' || k === 'Backspace') { G.KEYS.set(capture.id, capture.slot, ''); endCapture('"' + G.KEYS.name(capture.id) + '": key ' + (capture.slot + 1) + ' is empty.'); }
+      else if (k && k !== 'Unidentified') bind(k);
+    }, true);
+    window.addEventListener('mousedown', function (e) {
+      if (!capture) return;
+      if (e.target === capture.el) { e.preventDefault(); e.stopImmediatePropagation(); skipClick = e.button === 0; bind('Mouse' + e.button); }
+      else if (!(e.target.closest && e.target.closest('.kbtn'))) endCapture('');
+    }, true);
+    window.addEventListener('wheel', function (e) {
+      if (!capture) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (Math.abs(e.deltaY) >= 1) bind(e.deltaY > 0 ? 'WheelDown' : 'WheelUp');
+    }, { capture: true, passive: false });
+  }
   function refresh() {
     var cards = document.querySelectorAll('.card'), i, id, n;
     for (i = 0; i < cards.length; i++) {
@@ -348,6 +407,7 @@
     $('random').onclick = function () { picks = shuffled().slice(0, 6); G.sfx('ui'); teamChanged(); };
     $('clear').onclick = function () { picks = []; G.sfx('ui'); teamChanged(); };
     $('sbtn').onclick = function () { G.sfx('ui'); toggleStory(); };
+    initKeyPanel();
     window.addEventListener('keydown', function (e) { if (e.code === 'Escape' && storyOpen && state === 'menu') toggleStory(false); });
     loadLore();
     $('start').onclick = function () {
@@ -458,19 +518,50 @@
     c.mx = c.my = 0; c.guard = false; c.move = -1; c.sw = -1;
     G.sfx('ui');
   }
-  var KEYACT = { Digit1: ['move', 0], Digit2: ['move', 1], Digit3: ['move', 2], Digit4: ['move', 3], Space: ['dodge', 0], KeyR: ['sig', 0], KeyZ: ['sw', 0], KeyX: ['sw', 1], KeyC: ['sw', 2], KeyV: ['sw', 3], KeyB: ['sw', 4], KeyN: ['sw', 5] };
+  // ---- input: each key, mouse button and wheel direction goes through the key bindings (js/keys.js) ----
+  var KEYS = G.KEYS, MOVEI = { move1: 0, move2: 1, move3: 2, move4: 3 }, SWI = { sw1: 0, sw2: 1, sw3: 2, sw4: 3, sw5: 4, sw6: 5 };
+  var wheelT = 0, wheelTimer = 0;
+  function wheelCommit() {
+    var p = ui.pick;
+    ui.pick = -1;
+    if (state === 'battle' && battle && !battle.over && p >= 0 && p !== battle.sides[ui.me].active) act('sw', p);
+  }
+  // Next or previous creature. Each step moves the selection one creature (the HUD shows it: ui.pick).
+  // The switch occurs after a short wait, so that 2 or 3 steps go 2 or 3 creatures along the team. Fainted creatures are skipped.
+  function stepPick(dir) {
+    if (!battle || battle.over || ui.paused || ui.auto) return;
+    var sd = battle.sides[ui.me], n = sd.team.length, from = ui.pick >= 0 ? ui.pick : sd.active, i, k;
+    for (k = 1; k <= n; k++) { i = ((from + dir * k) % n + n) % n; if (!sd.team[i].fainted) { ui.pick = i; break; } }
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(wheelCommit, 190);
+    G.sfx('ui');
+  }
+  // One press of an input code. Returns true if an action has this code.
+  // The actions up, down, left, right and guard are not here: readMove reads them from the held inputs.
+  function press(code) {
+    var a = KEYS.actionOf(code);
+    if (!a || !battle) return false;
+    if (a === 'pause') { if (!battle.over && mode === 'solo') ui.paused = !ui.paused; }
+    else if (a === 'mute') G.muted = !G.muted;
+    else if (a === 'auto') act('auto', 0);
+    else if (a in MOVEI) act('move', MOVEI[a]);
+    else if (a in SWI) act('sw', SWI[a]);
+    else if (a === 'sig') act('sig', 0);
+    else if (a === 'dodge') act('dodge', 0);
+    else if (a === 'swNext') stepPick(1);
+    else if (a === 'swPrev') stepPick(-1);
+    return true;
+  }
+  function held(a) { var m = KEYS.get(a); return !!((m[0] && keys[m[0]]) || (m[1] && keys[m[1]])); }
   window.addEventListener('keydown', function (e) {
     if (state !== 'battle') return;
-    var k = e.code;
-    if (k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0) e.preventDefault();
+    var k = KEYS.norm(e.code);
+    if (KEYS.actionOf(k) || k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0) e.preventDefault();
     if (e.repeat) return;
     keys[k] = true;
-    if (k === 'KeyP' || k === 'Escape') { if (!battle.over && mode === 'solo') ui.paused = !ui.paused; return; }
-    if (k === 'KeyM') { G.muted = !G.muted; return; }
-    if (k === 'Tab') { act('auto', 0); return; }
-    if (KEYACT[k]) act(KEYACT[k][0], KEYACT[k][1]);
+    press(k);
   });
-  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('keyup', function (e) { keys[KEYS.norm(e.code)] = false; });
   window.addEventListener('blur', function () { keys = {}; guardBtn = false; });
   document.addEventListener('visibilitychange', function () {
     hiddenLast = 0;
@@ -479,43 +570,29 @@
   window.addEventListener('mousemove', function (e) { if (state !== 'battle') return; var p = R.toArena(e.clientX, e.clientY); ui.mx = p.x; ui.my = p.y; });
   cv.addEventListener('mousedown', function (e) {
     if (state !== 'battle') return;
-    var p = R.toLogical(e.clientX, e.clientY), b = R.hitButton(p.x, p.y), ap;
-    if (!b && p.y < 452) { ap = R.toArena(e.clientX, e.clientY); ui.mx = ap.x; ui.my = ap.y; }
+    var p = R.toLogical(e.clientX, e.clientY), b = R.hitButton(p.x, p.y), ap, code = 'Mouse' + e.button;
     if (b) { if (b.act === 'guard') guardBtn = true; else act(b.act, b.i); return; }
-    if (p.y < 452) act('move', e.button === 2 ? 1 : 0);
+    if (p.y >= 452) return;                               // the bar of the HUD
+    ap = R.toArena(e.clientX, e.clientY); ui.mx = ap.x; ui.my = ap.y;
+    keys[code] = true;
+    if (KEYS.actionOf(code)) { e.preventDefault(); press(code); }
   });
-  window.addEventListener('mouseup', function () { guardBtn = false; });
+  window.addEventListener('mouseup', function (e) { guardBtn = false; keys['Mouse' + e.button] = false; });
   cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  // The scroll wheel changes the creature: down = the next creature of the team, up = the creature before.
-  // Fainted creatures are skipped. Each notch moves the selection one creature (the HUD shows it: ui.pick).
-  // The switch occurs when the wheel stops, so that 2 or 3 notches go 2 or 3 creatures along the team.
-  var wheelT = 0, wheelTimer = 0;
-  function wheelCommit() {
-    var p = ui.pick;
-    ui.pick = -1;
-    if (state === 'battle' && battle && !battle.over && p >= 0 && p !== battle.sides[ui.me].active) act('sw', p);
-  }
+  window.addEventListener('auxclick', function (e) { if (state === 'battle') e.preventDefault(); });
   window.addEventListener('wheel', function (e) {
     if (state !== 'battle' || !battle || battle.over) return;
     e.preventDefault();
-    if (ui.paused || ui.auto || Math.abs(e.deltaY) < 1) return;
-    var now = performance.now(), sd = battle.sides[ui.me], n = sd.team.length, dir = e.deltaY > 0 ? 1 : -1, from, i, k;
-    if (now - wheelT < 70) return;                        // one step for each notch of the wheel
+    var now = performance.now();
+    if (Math.abs(e.deltaY) < 1 || now - wheelT < 70) return;   // one step for each notch of the wheel
     wheelT = now;
-    from = ui.pick >= 0 ? ui.pick : sd.active;
-    for (k = 1; k <= n; k++) {
-      i = ((from + dir * k) % n + n) % n;
-      if (!sd.team[i].fainted) { ui.pick = i; break; }
-    }
-    clearTimeout(wheelTimer);
-    wheelTimer = setTimeout(wheelCommit, 190);
-    G.sfx('ui');
+    press(e.deltaY > 0 ? 'WheelDown' : 'WheelUp');
   }, { passive: false });
 
   function readMove(o) {
-    o.mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-    o.my = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
-    o.guard = !!(keys.ShiftLeft || keys.ShiftRight || keys.KeyQ || guardBtn);
+    o.mx = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
+    o.my = (held('down') ? 1 : 0) - (held('up') ? 1 : 0);
+    o.guard = held('guard') || guardBtn;
   }
   function applyInput() {
     if (ui.auto) return;

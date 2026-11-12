@@ -85,7 +85,6 @@ HUD.hitButton = function (x, y) {
   for (let i = 0; i < BTN.length; i++) { const b = BTN[i]; if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b; }
   return null;
 };
-const SWKEY = ['Z', 'X', 'C', 'V', 'B', 'N'];
 
 // label with an optional colour square in front. Returns its width.
 function tag(s, x, y, type, mir, col) {
@@ -163,7 +162,7 @@ function bottomBar(b, ui) {
     }
     txt(lb, bt.x + 12, bt.y + 32, '500 11.5px ' + SANS, lc, 'left');
     txt(cd > 0 ? cd.toFixed(1) : (mv.power > 0 ? '' + mv.power * (mv.count || 1) : '–'), bt.x + bt.w - 9, bt.y + 32, '700 17px ' + SANS, cd > 0 ? C.muted : C.ivory, 'right');
-    keycap(i === 0 ? '1 · LMB' : i === 1 ? '2 · RMB' : '' + (i + 1), bt.x + bt.w - 8, bt.y + 4);
+    keycap(G.KEYS.text('move' + (i + 1)), bt.x + bt.w - 8, bt.y + 4);
   }
   // signature power
   bt = BTN[4]; f = m.charge / 100;
@@ -173,7 +172,7 @@ function bottomBar(b, ui) {
   nm = d.sig.name;
   txt(nm, bt.x + 10, bt.y + 17, fit(nm, '700 13.5px ' + SANS, bt.w - 34), ready ? '#231a00' : C.ivory, 'left');
   txt(ready ? 'Signature ready' : 'Signature ' + (m.charge | 0) + '%', bt.x + 10, bt.y + 32, '500 11.5px ' + SANS, ready ? '#4a3a08' : C.muted, 'left');
-  txt('R', bt.x + bt.w - 8, bt.y + 13, '600 10px ' + SANS, ready ? '#4a3a08' : C.faint, 'right');
+  txt(G.KEYS.text('sig', 1), bt.x + bt.w - 8, bt.y + 13, '600 10px ' + SANS, ready ? '#4a3a08' : C.faint, 'right');
   // team
   for (i = 0; i < 6; i++) {
     bt = BTN[5 + i]; t = side.team[i];
@@ -191,23 +190,23 @@ function bottomBar(b, ui) {
     ctx.globalAlpha = 1;
     if (!act && !t.fainted && side.switchCd > 0) { ctx.fillStyle = 'rgba(10,18,32,0.6)'; ctx.fillRect(bt.x + 1, bt.y + 1, (bt.w - 2) * Math.min(1, side.switchCd / 8), bt.h - 2); }
     if (ui.pick === i && !act) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; rr(bt.x + 1, bt.y + 1, bt.w - 2, bt.h - 2); ctx.stroke(); }   // selected with the scroll wheel
-    keycap(SWKEY[i], bt.x + bt.w - 6, bt.y + 4);
+    keycap(G.KEYS.text('sw' + (i + 1), 1), bt.x + bt.w - 6, bt.y + 4);
   }
   // dodge, guard, auto
   bt = BTN[11]; f = m.dodgeCd > 0 ? 1 - m.dodgeCd / 1.7 : 1;
   plate(bt.x, bt.y, bt.w, bt.h, C.surf, f >= 1 ? C.line2 : C.line);
   ctx.fillStyle = 'rgba(111,159,216,' + (f >= 1 ? 0.22 : 0.1) + ')'; ctx.fillRect(bt.x + 1, bt.y + 1 + (bt.h - 2) * (1 - f), bt.w - 2, (bt.h - 2) * f);
   lab('Dodge', bt.x + bt.w / 2, bt.y + 18, 10, f >= 1 ? C.ivory : C.muted, 'center');
-  lab('Space', bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
+  lab(G.KEYS.text('dodge', 1), bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
   bt = BTN[12]; f = m.guardM / 100;
   plate(bt.x, bt.y, bt.w, bt.h, C.surf, m.guarding ? C.brass : C.line2);
   ctx.fillStyle = m.guardLock ? 'rgba(207,107,88,0.3)' : 'rgba(194,161,92,' + (m.guarding ? 0.4 : 0.2) + ')'; ctx.fillRect(bt.x + 1, bt.y + 1 + (bt.h - 2) * (1 - f), bt.w - 2, (bt.h - 2) * f);
   lab('Guard', bt.x + bt.w / 2, bt.y + 18, 10, m.guardLock ? C.bad : C.ivory, 'center');
-  lab('Shift', bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
+  lab(G.KEYS.text('guard', 1), bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
   bt = BTN[13];
   plate(bt.x, bt.y, bt.w, bt.h, C.surf, ui.auto || ui.note ? C.brass : C.line2);
   lab(ui.note ? 'Online' : ui.auto ? 'Auto' : 'Manual', bt.x + bt.w / 2, bt.y + (ui.note ? 23 : 18), 10, ui.auto || ui.note ? C.brass : C.ivory, 'center');
-  if (!ui.note) lab('Tab', bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
+  if (!ui.note) lab(G.KEYS.text('auto', 1), bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
 }
 
 function topCentre(b, dt) {
@@ -339,7 +338,7 @@ HUD.draw = function (b, ui, dt, proj, bars) {
   if (ui.paused) {
     ctx.fillStyle = 'rgba(10,18,32,0.72)'; ctx.fillRect(-400, -200, W + 800, H + 400);
     txt('Paused', 480, 268, '700 48px ' + SANS, C.ivory, 'center');
-    lab('Press P or Esc to continue', 480, 294, 10, C.muted, 'center');
+    lab('Press ' + (G.KEYS.text('pause').replace(' \u00b7 ', ' or ') || 'the pause key') + ' to continue', 480, 294, 10, C.muted, 'center');
   }
 };
 HUD.clear = function () { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); };

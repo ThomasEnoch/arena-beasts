@@ -29,17 +29,9 @@
     <details id="help">
       <summary>Controls</summary>
       <div>
-        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
-        <span><kbd>Mouse</kbd> Aim</span>
-        <span><kbd>1</kbd>–<kbd>4</kbd> Moves (<kbd>LMB</kbd> = 1, <kbd>RMB</kbd> = 2)</span>
-        <span><kbd>R</kbd> Signature power</span>
-        <span><kbd>Space</kbd> Dodge</span>
-        <span><kbd>Shift</kbd> Guard (hold)</span>
-        <span><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd> Switch creature</span>
-        <span><kbd>Wheel</kbd> Next or previous creature</span>
-        <span><kbd>Tab</kbd> Auto play</span>
-        <span><kbd>P</kbd> Pause</span>
-        <span><kbd>M</kbd> Mute</span>
+        <p id="khint"></p>
+        <div id="keys"></div>
+        <div class="kfoot"><span><kbd>Mouse</kbd> Aim</span><button id="kreset" type="button">Reset to defaults</button></div>
       </div>
     </details>
   </header>
@@ -73,6 +65,7 @@
 
 <script src="js/data.js"></script>
 <script src="js/icons.js"></script>
+<script src="js/keys.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/audio.js"></script>
