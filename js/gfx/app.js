@@ -118,7 +118,7 @@ async function boot() {
     }
     if (barEl) barEl.style.width = '100%';
     try { await Promise.race([document.fonts.load('600 16px Fredoka'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* the fallback font is fine */ }
-    await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'js/main.js'; s.onload = ok; s.onerror = bad; document.body.appendChild(s); });
+    await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'js/main.js' + (window.AB_V ? '?v=' + window.AB_V : ''); s.onload = ok; s.onerror = bad; document.body.appendChild(s); });
     World.warm();
     if (loadEl) loadEl.classList.add('hidden');
   } catch (e) {

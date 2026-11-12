@@ -93,7 +93,7 @@
   var LORE = {}, storyOpen = false;
   function loadLore() {
     if (!window.fetch) return;
-    fetch('LORE.md').then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+    fetch('LORE.md' + (window.AB_V ? '?v=' + window.AB_V : '')).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
       t.split(/^### /m).slice(1).forEach(function (sec) {
         var idm = /\x60([a-z]+)\x60\s*·\s*[^·\n]+·\s*([^\n]+)/.exec(sec), f = [], re = /^- \*\*(.+?):\*\*\s*(.+)$/gm, m;
         if (!idm || !G.DEX[idm[1]]) return;

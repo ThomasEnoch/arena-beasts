@@ -1,0 +1,16 @@
+#!/bin/sh
+# Arena Beasts - git hook. It runs before each commit.
+# It stamps the version of the files into index.html (tools/stamp.js) and adds index.html to the commit,
+# so that each release has its own file addresses and a browser cannot mix old and new files.
+#
+# Switch it on one time for each copy of the repository:   git config core.hooksPath tools/hooks
+# Skip it for one commit:                                  git commit --no-verify
+# Note: the version is a hash of the files in the working tree. All of index.html goes into the commit.
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node is not installed. Install Node.js, or use: git commit --no-verify" >&2
+  exit 1
+fi
+node tools/stamp.js || { echo "pre-commit: the version stamp failed. The commit is stopped." >&2; exit 1; }
+git add index.html
