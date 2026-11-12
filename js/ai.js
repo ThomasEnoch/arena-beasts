@@ -58,6 +58,9 @@
       case 'phase': return true;
       case 'relay': return d < 380;
       case 'monsoon': return hp < 0.75;
+      case 'xnova': case 'xpound': return d < m.d.sig.p.radius * 0.8;
+      case 'xlob': return d < m.d.sigMove.range;
+      case 'xbeam': return d < m.d.sig.p.range * 0.8;
     }
     return true;
   }

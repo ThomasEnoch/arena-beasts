@@ -8,24 +8,33 @@
   var PREFIX = 'arena-beasts-v1-', ALPHA = 'abcdefghjkmnpqrstuvwxyz23456789';
 
   // ---- transport ----------------------------------------------------------
-  var N = G.Net = { role: null, state: 'off', room: '', error: '', peer: null, conn: null, onChange: null, onOpen: null, onMessage: null, onClose: null };
-  var joinTimer = 0, lastRx = 0, goneFn = null;
+  // N.id       : this browser's identity. It lets the host know a player who comes back.
+  // N.peerId   : (host) identity of the connected guest.
+  // N.reserved : (host) identity of the guest in the current battle. Only this guest can come back.
+  var N = G.Net = { role: null, state: 'off', room: '', error: '', peer: null, conn: null, id: '', peerId: '', reserved: '', onChange: null, onOpen: null, onMessage: null, onClose: null };
+  var joinTimer = 0, retryTimer = 0, lastRx = 0, lostAt = 0, dialAt = 0, goneFn = null;
+  var REJOIN_MS = 60000, DIAL_MS = 8000;
   function set(state, err) { N.state = state; N.error = err || ''; if (N.onChange) N.onChange(); }
-  function code() {
-    var a = new Uint8Array(6), s = '', i;
+  function code(n) {
+    var a = new Uint8Array(n), s = '', i;
     window.crypto.getRandomValues(a);
-    for (i = 0; i < 6; i++) s += ALPHA[a[i] % ALPHA.length];
+    for (i = 0; i < n; i++) s += ALPHA[a[i] % ALPHA.length];
     return s;
   }
+  function validId(v) { return typeof v === 'string' && /^[a-z0-9]{12}$/.test(v); }
+  try { N.id = localStorage.getItem('ab_id'); } catch (e) { /* storage is optional */ }
+  if (!validId(N.id)) { N.id = code(12); try { localStorage.setItem('ab_id', N.id); } catch (e) { /* storage is optional */ } }
   N.available = function () { return typeof window.Peer === 'function'; };
   N.validRoom = function (r) { return typeof r === 'string' && /^[a-z0-9]{6}$/.test(r); };
 
-  function wire(conn) {
-    N.conn = conn;
+  function wire(conn, pid) {
+    N.conn = conn; conn.pid = pid || '';
+    lastRx = performance.now();
     conn.on('open', function () {
       if (conn !== N.conn) return;
-      clearTimeout(joinTimer);
+      clearTimeout(joinTimer); clearInterval(retryTimer);
       lastRx = performance.now();
+      N.peerId = conn.pid;
       set('connected');
       if (N.onOpen) N.onOpen();
     });
@@ -35,19 +44,35 @@
       if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return; } }
       if (!d || typeof d !== 'object' || typeof d.t !== 'string') return;
       if (d.t === 'hb') return;
-      if (d.t === 'bye') { gone(); return; }
+      if (d.t === 'bye') { gone(d.f === 1); return; }
       if (N.onMessage) N.onMessage(d);
     });
-    function gone() {
+    // final = the other player used "Leave room". If not final, the player can come back.
+    function gone(final) {
       if (conn !== N.conn) return;
+      var was = N.state;
       N.conn = null; goneFn = null;
       try { conn.close(); } catch (e) { /* ignore */ }
-      if (N.role === 'host') set('waiting'); else N.leave('The connection to the host closed.');
-      if (N.onClose) N.onClose();
+      if (N.role === 'host') {
+        if (was !== 'connected') return;            // a connection that did not open
+        set('waiting');
+        if (N.onClose) N.onClose(final);
+      } else if (was === 'rejoining') {
+        return;                                     // the retry timer makes the next attempt
+      } else if (was === 'connected' && !final) {
+        lostAt = performance.now();
+        set('rejoining');
+        clearInterval(retryTimer); retryTimer = setInterval(retry, 2000);
+        if (N.onClose) N.onClose(false);
+      } else {
+        N.leave(final ? 'The host closed the room.' : 'The connection to the host closed.');
+        if (N.onClose) N.onClose(true);
+      }
     }
-    conn.on('close', gone);
-    conn.on('error', gone);
-    goneFn = gone;
+    conn.on('close', function () { gone(false); });
+    conn.on('error', function () { gone(false); });
+    setTimeout(function () { if (conn === N.conn && !conn.open) gone(false); }, 15000);
+    goneFn = function () { gone(false); };
   }
   // A closed tab does not always report the close. A heartbeat finds a silent connection.
   setInterval(function () {
@@ -57,30 +82,101 @@
   }, 1000);
   window.addEventListener('pagehide', function () { N.send({ t: 'bye' }); });
 
-  N.host = function () {
+  // The broker connection can drop. Connect to the broker again after a short time.
+  function keepBroker(peer) {
+    peer.on('disconnected', function () {
+      setTimeout(function () {
+        if (peer === N.peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) { /* ignore */ } }
+      }, 2000);
+    });
+  }
+
+  // host(room): open a room. A given room code is used again (the host loaded the page again).
+  N.host = function (room, tries) {
     if (!N.available()) { set('off', 'The network library did not load. Check the internet connection.'); return; }
+    var keep = N.validRoom(room), opened = false;
+    tries = tries | 0;
     N.leave();
-    N.role = 'host'; N.room = code();
+    N.role = 'host'; N.room = keep ? room : code(6);
     set('opening');
     var peer = N.peer = new window.Peer(PREFIX + N.room);
-    peer.on('open', function () { if (peer === N.peer) set('waiting'); });
+    peer.on('open', function () { if (peer !== N.peer) return; opened = true; if (N.state === 'opening') set('waiting'); });
     peer.on('connection', function (conn) {
       if (peer !== N.peer) return;
-      if (N.conn) {   // room is full: tell the third player and close
+      var pid = conn.metadata && validId(conn.metadata.id) ? conn.metadata.id : '', old = N.conn;
+      // The room has 2 places. A second connection is accepted only from the same player (a new connection replaces the old one).
+      if ((old && !(pid && pid === old.pid)) || (N.reserved && pid !== N.reserved)) {
         conn.on('open', function () { try { conn.send({ t: 'full' }); } catch (e) { /* ignore */ } setTimeout(function () { conn.close(); }, 400); });
         return;
       }
-      wire(conn);
+      if (old) { N.conn = null; goneFn = null; try { old.close(); } catch (e) { /* ignore */ } }
+      wire(conn, pid);
     });
-    peer.on('disconnected', function () { if (peer === N.peer) { try { peer.reconnect(); } catch (e) { /* ignore */ } } });
+    keepBroker(peer);
     peer.on('error', function (err) {
       if (peer !== N.peer) return;
-      if (err && err.type === 'unavailable-id') { N.host(); return; }
-      if (N.conn && N.conn.open) return;   // the game connection does not use the broker
-      N.leave('Network error: ' + (err && err.type || 'unknown') + '.');
-      if (N.onClose) N.onClose();
+      var type = err && err.type || 'unknown';
+      if (type === 'unavailable-id') {
+        // After a page reload the broker can hold the old room code for a short time.
+        if (keep && tries < 4) setTimeout(function () { if (peer === N.peer) N.host(room, tries + 1); }, 1500);
+        else N.host();
+        return;
+      }
+      if ((N.conn && N.conn.open) || (opened && !peer.destroyed)) return;   // the room can continue
+      N.leave('Network error: ' + type + '.');
+      if (N.onClose) N.onClose(true);
     });
   };
+
+  // guest: one connection attempt to the room
+  function dial() {
+    var peer = N.peer, old = N.conn, c;
+    if (!peer || !peer.open) return;
+    if (old) { N.conn = null; try { old.close(); } catch (e) { /* ignore */ } }
+    dialAt = performance.now();
+    c = peer.connect(PREFIX + N.room, { reliable: true, serialization: 'json', metadata: { id: N.id } });
+    if (c) wire(c, '');
+  }
+  function guestPeer() {
+    var peer = N.peer = new window.Peer();
+    peer.on('open', function () {
+      if (peer !== N.peer) return;
+      if (N.state === 'opening') {
+        set('joining');
+        joinTimer = setTimeout(function () {
+          if (peer === N.peer && N.state === 'joining') N.leave('No connection. The room is closed, or a firewall blocks the connection.');
+        }, 15000);
+      }
+      if (N.state === 'joining' || N.state === 'rejoining') dial();
+    });
+    keepBroker(peer);
+    peer.on('error', function (err) {
+      if (peer !== N.peer) return;
+      var type = err && err.type || 'unknown', c;
+      if (N.conn && N.conn.open) return;
+      if (N.state === 'rejoining') {
+        // the host is not there at this time: drop this attempt, the retry timer makes a new one
+        if (type === 'peer-unavailable' && N.conn) { c = N.conn; N.conn = null; try { c.close(); } catch (e) { /* ignore */ } }
+        return;
+      }
+      if (N.state === 'connected') return;
+      N.leave(type === 'peer-unavailable' ? 'Room not found. Ask the host for a new link.' : 'Network error: ' + type + '.');
+      if (N.onClose) N.onClose(true);
+    });
+  }
+  // guest: the connection dropped. Try again until the time limit.
+  function retry() {
+    if (N.state !== 'rejoining') { clearInterval(retryTimer); return; }
+    var now = performance.now(), p = N.peer;
+    if (now - lostAt > REJOIN_MS) {
+      N.leave('The connection to the host is lost.');
+      if (N.onClose) N.onClose(true);
+      return;
+    }
+    if (!p || p.destroyed) guestPeer();
+    else if (p.disconnected) { try { p.reconnect(); } catch (e) { /* ignore */ } }
+    else if (p.open && (!N.conn || now - dialAt > DIAL_MS)) dial();
+  }
 
   N.join = function (room) {
     if (!N.available()) { set('off', 'The network library did not load. Check the internet connection.'); return; }
@@ -88,22 +184,7 @@
     N.leave();
     N.role = 'guest'; N.room = room;
     set('opening');
-    var peer = N.peer = new window.Peer();
-    peer.on('open', function () {
-      if (peer !== N.peer) return;
-      set('joining');
-      wire(peer.connect(PREFIX + room, { reliable: true, serialization: 'json' }));
-      joinTimer = setTimeout(function () {
-        if (peer === N.peer && N.state === 'joining') N.leave('No connection. The room is closed, or a firewall blocks the connection.');
-      }, 15000);
-    });
-    peer.on('disconnected', function () { if (peer === N.peer) { try { peer.reconnect(); } catch (e) { /* ignore */ } } });
-    peer.on('error', function (err) {
-      if (peer !== N.peer) return;
-      if (N.conn && N.conn.open) return;
-      N.leave(err && err.type === 'peer-unavailable' ? 'Room not found. Ask the host for a new link.' : 'Network error: ' + (err && err.type || 'unknown') + '.');
-      if (N.onClose) N.onClose();
-    });
+    guestPeer();
   };
 
   N.send = function (obj) {
@@ -112,10 +193,10 @@
   };
   N.leave = function (msg) {
     var p = N.peer;
-    clearTimeout(joinTimer);
-    N.send({ t: 'bye' });
+    clearTimeout(joinTimer); clearInterval(retryTimer);
+    N.send({ t: 'bye', f: 1 });
     goneFn = null;
-    N.peer = null; N.conn = null; N.role = null; N.room = '';
+    N.peer = null; N.conn = null; N.role = null; N.room = ''; N.peerId = '';
     if (p) { try { p.destroy(); } catch (e) { /* ignore */ } }
     set('off', msg || '');
   };
@@ -124,7 +205,7 @@
   var S = G.NetSync = {};
   var STATUS = [null, 'burn', 'poison', 'toxic', 'para', 'chill', 'sleep'];
   var STATES = ['bench', 'enter', 'idle', 'wind', 'rec', 'dash', 'dodge', 'stun', 'special', 'faint'];
-  var ZK = { lava: 1, toxic: 1, spikes: 1, bubbles: 1, ice: 1, vines: 1, gravity: 1 };
+  var ZK = { lava: 1, toxic: 1, spikes: 1, bubbles: 1, ice: 1, vines: 1, gravity: 1, volt: 1, smoke: 1 };
   var seq = -1, lastT = 0, interval = 33, projMap = {}, prevAct = [-1, -1];
   function r1(v) { return Math.round(v * 10) / 10; }
   function r2(v) { return Math.round(v * 100) / 100; }

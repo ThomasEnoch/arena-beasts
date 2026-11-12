@@ -276,6 +276,10 @@
           break;
         case 'drain': heal(b, src, dmg * f.pct); break;
         case 'recoil': selfDamage(b, src, dmg * f.pct); break;
+        case 'root': if (!guarded && tgt.bulwark <= 0 && Math.random() < f.ch) { tgt.rootT = Math.max(tgt.rootT, f.t); b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Rooted!', col: '#d8c8ff' }); } break;
+        case 'stun': if (!guarded && tgt.ccImmune <= 0 && Math.random() < f.ch && setStun(tgt, f.t)) b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Stunned!', col: '#fff27a' }); break;
+        case 'slow': if (!guarded && Math.random() < f.ch) { tgt.slowT = Math.max(tgt.slowT, f.t); tgt.slowF = f.f; b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Slowed!', col: '#f0a8d8' }); } break;
+        case 'sap': if (!guarded && dmg > 0 && tgt.charge > 0) { var sp = Math.min(f.n, tgt.charge); tgt.charge -= sp; addCharge(b, src, sp); b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Power drained!', col: '#c9b8ff' }); } break;
       }
     }
     return dmg;
@@ -358,8 +362,8 @@
       confuse(b, foe, 2);
     },
     overgrowth: function (b, side, m, foe) {
-      addZone(b, side.idx, { x: m.aimX, y: m.aimY, radius: 170, dur: 6, kind: 'vines', pct: 0.02, slow: 0.5, healOwner: 0.01, type: 'Bloom' });
-      if (distP(m.aimX, m.aimY, foe) <= 170 + foe.r) sigHit(b, m, foe, 0.15, 'Bloom');
+      addZone(b, side.idx, { x: m.aimX, y: m.aimY, radius: 170, dur: 6, kind: 'vines', pct: 0.02, slow: 0.5, healOwner: 0.01, type: m.d.sig.type });
+      if (distP(m.aimX, m.aimY, foe) <= 170 + foe.r) sigHit(b, m, foe, 0.15, m.d.sig.type);
       stage(b, m, 'def', -1);
       m.rootT = 0.8; m.st = 0.8;
     },
@@ -442,11 +446,11 @@
             var d = Math.min(420, dist(f, foe) + 110);
             s.tx = clamp(f.x + Math.cos(a) * d, AR.x0 + f.r, AR.x1 - f.r); s.ty = clamp(f.y + Math.sin(a) * d, AR.y0 + f.r, AR.y1 - f.r);
             f.face = a;
-            b.ev.push({ k: 'trail', x: s.sx, y: s.sy, x2: s.tx, y2: s.ty, type: 'Volt' });
+            b.ev.push({ k: 'trail', x: s.sx, y: s.sy, x2: s.tx, y2: s.ty, type: f.d.sig.type });
           }
           var q = s.segT / 0.16;
           f.x = s.sx + (s.tx - s.sx) * q; f.y = s.sy + (s.ty - s.sy) * q;
-          if (!s.hit && present(foe) && dist(f, foe) < f.r + foe.r + 16) { s.hit = true; sigHit(b, f, foe, 0.08, 'Volt'); }
+          if (!s.hit && present(foe) && dist(f, foe) < f.r + foe.r + 16) { s.hit = true; sigHit(b, f, foe, 0.08, f.d.sig.type); }
         },
         end: function (b, side, f) { f.slowT = 2.5; f.slowF = 0.5; f.state = 'rec'; f.st = f.stMax = 0.5; }
       });
@@ -459,10 +463,62 @@
       b.msg('Rain starts to fall!', '#8fc8ff');
     }
   };
+  // Generic signature powers. The data in sig.p sets them:
+  // { pct, radius | range + width, type, zone, status, stun, slow, conf, kb, cost, recoil, root, cds, st }
+  function sigAfter(b, side, m, foe, p, d, from) {
+    if (d > 0 && !foe.fainted) {
+      if (p.status && !foe.guarding) tryStatus(b, foe, p.status);
+      if (p.stun && setStun(foe, p.stun)) b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: 'Stunned!', col: '#fff27a' });
+      if (p.slow) { foe.slowT = p.slow[0]; foe.slowF = p.slow[1]; }
+      if (p.conf) confuse(b, foe, p.conf);
+      if (p.kb) knock(from || m, foe, p.kb);
+    }
+    if (p.cost) stage(b, m, p.cost[0], p.cost[1]);
+    if (p.recoil) selfDamage(b, m, m.maxHp * p.recoil);
+    if (p.cds) for (var i = 0; i < 4; i++) m.cds[i] += p.cds;
+    if (p.root) m.rootT = p.root;
+    m.st = p.st || 0.5;
+  }
+  function sigZone(b, side, p, x, y) { var z = {}, k; for (k in p.zone) z[k] = p.zone[k]; z.x = x; z.y = y; z.type = p.type; addZone(b, side.idx, z); }
+  SIG.xnova = function (b, side, m, foe) {
+    var p = m.d.sig.p;
+    b.ev.push({ k: 'shake', v: 10 }); b.ev.push({ k: 'burst', x: m.x, y: m.y, r: p.radius, type: p.type });
+    var d = dist(m, foe) <= p.radius + foe.r ? sigHit(b, m, foe, p.pct, p.type) : -1;
+    if (p.zone) sigZone(b, side, p, m.x, m.y);
+    sigAfter(b, side, m, foe, p, d);
+  };
+  SIG.xlob = function (b, side, m, foe) {
+    var p = m.d.sig.p, at = { x: m.aimX, y: m.aimY };
+    b.ev.push({ k: 'shake', v: 10 }); b.ev.push({ k: 'burst', x: at.x, y: at.y, r: p.radius, type: p.type });
+    b.ev.push({ k: 'trail', x: at.x, y: at.y, x2: at.x, y2: at.y, type: p.type, sky: 1 });
+    var d = distP(at.x, at.y, foe) <= p.radius + foe.r ? sigHit(b, m, foe, p.pct, p.type) : -1;
+    if (p.zone) sigZone(b, side, p, at.x, at.y);
+    sigAfter(b, side, m, foe, p, d, at);
+  };
+  SIG.xbeam = function (b, side, m, foe) {
+    var p = m.d.sig.p;
+    b.ev.push({ k: 'shake', v: 9 });
+    var d = inLine(m.x, m.y, m.aimA, p.range, p.width, foe) ? sigHit(b, m, foe, p.pct, p.type) : -1;
+    sigAfter(b, side, m, foe, p, d);
+  };
+  SIG.xpound = function (b, side, m) {
+    var p = m.d.sig.p;
+    special(m, {
+      dur: p.n * p.gap + 0.15, n: 0, acc: p.gap,
+      upd: function (b, side, f, foe, dt) {
+        var s = f.sp; s.acc += dt;
+        if (s.acc < p.gap || s.n >= p.n) return;
+        s.acc = 0; s.n++;
+        b.ev.push({ k: 'shake', v: 7 + s.n }); b.ev.push({ k: 'burst', x: f.x, y: f.y, r: p.radius, type: p.type });
+        if (present(foe) && dist(f, foe) <= p.radius + foe.r) { if (sigHit(b, f, foe, p.pct, p.type) > 0 && s.n === p.n && p.kb) knock(f, foe, p.kb); }
+      },
+      end: function (b, side, f) { if (p.cost) stage(b, f, p.cost[0], p.cost[1]); f.state = 'rec'; f.st = f.stMax = 0.6; }
+    });
+  };
   function bulwarkEnd(b, side, m, foe) {
-    b.ev.push({ k: 'burst', x: m.x, y: m.y, r: 150, type: 'Stone' });
+    b.ev.push({ k: 'burst', x: m.x, y: m.y, r: 150, type: m.d.sig.type });
     b.ev.push({ k: 'shake', v: 8 });
-    if (present(foe) && dist(m, foe) <= 150 + foe.r) { if (sigHit(b, m, foe, 0.30, 'Stone') > 0) knock(m, foe, 320); }
+    if (present(foe) && dist(m, foe) <= 150 + foe.r) { if (sigHit(b, m, foe, 0.30, m.d.sig.type) > 0) knock(m, foe, 320); }
   }
   function cycloneTick(b, side, m, foe, dt) {
     m.cyclone -= dt;

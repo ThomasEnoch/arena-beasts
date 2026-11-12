@@ -10,11 +10,11 @@
   var keys = {}, guardBtn = false, acc = 0, last = 0, STEP = 1 / 60, endT = 0, detailId = null, menuT = 0;
   var myName = 'Player', peerName = 'Player', myReady = false, peerReady = false, peerTeam = null;
   var outEv = [], stepN = 0, snapN = 0, inT = 0, pingT = 0, ping = -1, hiddenLast = 0;
+  // Reconnect: 'away' = the guest of this battle has no connection. The host holds the battle for WAIT seconds in total.
+  var WAIT = 30, away = false, waitLeft = 0, notice = '', ovText = null;
   var CAT = { phys: 'Physical', spec: 'Special', status: 'Status' };
 
-  G.buildSprites();
   R.init(cv);
-  R.buildArena();
 
   // ---- checks for data from the other player ------------------------------
   function cleanName(v, def) {
@@ -33,10 +33,11 @@
   function online() { return Net.state === 'connected'; }
 
   // ---- menu ---------------------------------------------------------------
-  function chips(types) { return types.map(function (t) { return '<span class="chip" style="background:' + G.TCOL[t] + '">' + t + '</span>'; }).join(''); }
+  function chips(types) { return types.map(function (t) { return G.typeBadge(t, true); }).join(''); }
+  function tcols(el, d) { el.style.setProperty('--c1', G.TCOL[d.types[0]]); el.style.setProperty('--c2', G.TCOL[d.types[1] || d.types[0]]); }
   function spriteCanvas(id, px) {
-    var c = document.createElement('canvas'); c.width = c.height = 144; c.style.width = c.style.height = px + 'px';
-    c.getContext('2d').drawImage(G.SPR[id].idle[0], 0, 0);
+    var c = document.createElement('canvas'), im = G.SPR[id].idle[0]; c.width = c.height = im.width; c.style.width = c.style.height = px + 'px';
+    c.getContext('2d').drawImage(im, 0, 0);
     return c;
   }
   function fxText(mv) {
@@ -61,26 +62,29 @@
     if (mv.count) out.push(mv.count + ' shots');
     return out.join(' · ');
   }
+  var STATN = [['HP', 'hp'], ['Attack', 'atk'], ['Defence', 'def'], ['Sp. Atk', 'spa'], ['Sp. Def', 'spd'], ['Speed', 'spe']];
   function showDetail(id) {
     if (detailId === id) return;
     detailId = id;
-    var d = G.DEX[id], s = d.st, tot = s.hp + s.atk + s.def + s.spa + s.spd + s.spe;
-    var rows = [['HP', s.hp], ['ATK', s.atk], ['DEF', s.def], ['SPA', s.spa], ['SPD', s.spd], ['SPE', s.spe]].map(function (r) {
-      return '<div class="stat"><span>' + r[0] + '</span><div class="bar"><i style="width:' + Math.round(r[1] / 130 * 100) + '%"></i></div><b>' + r[1] + '</b></div>';
+    var d = G.DEX[id], s = d.st, cards = document.querySelectorAll('.card'), i;
+    for (i = 0; i < cards.length; i++) cards[i].classList.toggle('cur', cards[i].dataset.id === id);
+    tcols($('stage'), d);
+    $('smark').innerHTML = G.typeSvg(d.types[0]);
+    $('sname').textContent = d.name;
+    $('stypes').innerHTML = chips(d.types);
+    $('srole').textContent = d.role + ' · ' + d.pref + ' range';
+    $('sblurb').textContent = d.blurb;
+    var rows = STATN.map(function (r) {
+      var v = s[r[1]];
+      return '<div class="stat"><span>' + r[0] + '</span><div class="bar"><i class="' + (v >= 105 ? 'hi' : v < 70 ? 'lo' : '') + '" style="width:' + Math.round(v / 130 * 100) + '%"></i></div><b>' + v + '</b></div>';
     }).join('');
-    var moves = d.moves.map(function (mv, i) {
-      return '<div class="move" style="border-left-color:' + G.TCOL[mv.type] + '"><div class="mh"><b>' + (i + 1) + '. ' + mv.name + '</b><span class="chip" style="background:' + G.TCOL[mv.type] + '">' + mv.type + '</span></div>' +
-        '<div class="ms">' + CAT[mv.cat] + ' · ' + G.SHAPE_LABEL[mv.shape] + ' · ' + (mv.power ? 'Power ' + mv.power * (mv.count || 1) + ' · ' : '') + 'Cooldown ' + mv.cd + ' s</div>' +
-        (fxText(mv) ? '<div class="mf">' + fxText(mv) + '</div>' : '') + '</div>';
+    var moves = d.moves.map(function (mv) {
+      var fxs = fxText(mv);
+      return '<div class="move">' + G.typeBadge(mv.type) + '<b>' + mv.name + '</b><span class="pw">' + (mv.power ? '<strong>' + mv.power * (mv.count || 1) + '</strong> power' : CAT[mv.cat]) + '</span>' +
+        '<div class="ms">' + G.SHAPE_LABEL[mv.shape] + ' · ' + mv.cd + ' s cooldown</div>' + (fxs ? '<div class="mf">' + fxs + '</div>' : '') + '</div>';
     }).join('');
-    $('detail').innerHTML =
-      '<div class="dhead"><canvas id="dspr" width="144" height="144"></canvas><div><h2>' + d.name + '</h2><div>' + chips(d.types) + '</div>' +
-      '<p class="role">' + d.role + ' · ' + d.pref + ' range · ' + d.ai + '</p></div></div>' +
-      '<p class="blurb">' + d.blurb + '</p>' +
-      '<div class="stats">' + rows + '<div class="tot">Total ' + tot + '</div></div>' +
-      '<h3>Moves</h3>' + moves +
-      '<h3>Signature power</h3><div class="sig"><b>' + d.sig.name + '</b><span class="chip" style="background:' + G.TCOL[d.sig.type] + '">' + d.sig.type + '</span>' +
-      '<p>' + d.sig.desc + '</p><p class="cost">Cost: ' + d.sig.cost + '</p></div>';
+    $('detail').innerHTML = '<section class="dstats"><h3>Stats</h3>' + rows + '</section><section class="dmoves"><h3>Moves</h3>' + moves +
+      '</section><section class="dsig"><h3>Signature power</h3><div class="sig"><div class="sh">' + G.typeBadge(d.sig.type) + '<b>' + d.sig.name + '</b></div><p>' + d.sig.desc + '</p><p class="cost">Cost: ' + d.sig.cost + '</p></div></section>';
   }
   function refresh() {
     var cards = document.querySelectorAll('.card'), i, id, n;
@@ -89,10 +93,12 @@
       cards[i].classList.toggle('on', n >= 0);
       cards[i].querySelector('.num').textContent = n >= 0 ? n + 1 : '';
     }
+    $('tcount').textContent = 'Your team ' + picks.length + ' / 6';
     var team = $('team'); team.innerHTML = '';
     for (i = 0; i < 6; i++) {
       var slot = document.createElement('button'); slot.className = 'slot' + (picks[i] ? ' full' : '');
       if (picks[i]) {
+        tcols(slot, G.DEX[picks[i]]);
         slot.appendChild(spriteCanvas(picks[i], 44));
         slot.insertAdjacentHTML('beforeend', '<span>' + G.DEX[picks[i]].name + '</span>');
         slot.title = 'Remove ' + G.DEX[picks[i]].name;
@@ -124,10 +130,11 @@
     if (st === 'off') txt = Net.error || 'Play with a friend: create a room and send the link.';
     else if (st === 'opening') txt = 'Opening the room…';
     else if (st === 'joining') txt = 'Connecting to the room…';
-    else if (st === 'waiting') txt = 'Room is open. Send the link to the other player.' + (local ? ' This address is local: the link works on this computer only.' : '');
-    else txt = 'Connected to ' + peerName + '. ' + (peerReady ? peerName + ' is ready.' : peerName + ' is selecting a team.');
+    else if (st === 'waiting') txt = 'Room is open. Send the link to the other player.' + (local ? ' The link works on this computer only.' : '');
+    else if (st === 'rejoining') txt = 'Connection lost. Reconnecting…';
+    else txt = notice + 'Connected to ' + peerName + '. ' + (peerReady ? peerName + ' is ready.' : peerName + ' is selecting a team.');
     $('nstatus').textContent = txt;
-    $('nstatus').className = st === 'off' && Net.error ? 'err' : on ? 'ok' : '';
+    $('nstatus').className = (st === 'off' && Net.error) || st === 'rejoining' ? 'err' : on ? 'ok' : '';
     $('create').classList.toggle('hidden', st !== 'off');
     $('leave').classList.toggle('hidden', st === 'off');
     $('linkbox').classList.toggle('hidden', !(Net.role === 'host' && st === 'waiting'));
@@ -142,13 +149,13 @@
       start.textContent = picks.length !== 6 ? 'Select ' + (6 - picks.length) + ' more' : myReady ? 'Ready. Waiting…' : 'Ready';
     }
     var rs = $('rstatus');
-    if (rs) rs.textContent = on ? (myReady ? 'Waiting for ' + peerName + '…' : peerReady ? peerName + ' wants a rematch.' : '') : (mode !== 'solo' ? 'The other player left.' : '');
+    if (rs) rs.textContent = on ? (myReady ? 'Waiting for ' + peerName + '…' : peerReady ? peerName + ' wants a rematch.' : '') : st === 'rejoining' ? 'Connection lost. Reconnecting…' : (mode !== 'solo' ? 'The other player left.' : '');
     var ag = $('again');
     if (ag && mode !== 'solo') { ag.disabled = !on; ag.textContent = myReady ? 'Cancel rematch' : 'Rematch'; }
   }
   function setReady(v) {
     if (!online() || picks.length !== 6) return;
-    myReady = v;
+    myReady = v; notice = '';
     Net.send({ t: 'ready', on: v, team: v ? picks : null });
     refreshLobby();
     maybeStart();
@@ -161,22 +168,76 @@
     myReady = peerReady = false;
     startBattle(teams[0], teams[1], 'host', names);
   }
-  function peerGone() {
+  function toMenu() {
+    mode = 'solo'; state = 'menu'; battle = null; ui.me = 0;
+    result.classList.add('hidden'); menu.classList.remove('hidden');
+  }
+  function giveAI(txt) {
+    var s = battle.sides[1];
+    s.isAI = true; s.ai = G.makeAI('normal');
+    battle.msg(txt, '#ffe27a');
+  }
+  // The connection to the other player closed. final = the player left the room, or the retry time ended.
+  function peerGone(final) {
+    var live = state === 'battle' && battle && !battle.over;
     myReady = peerReady = false; peerTeam = null; ping = -1;
-    if (state === 'battle' && battle && !battle.over) {
-      if (mode === 'host') {
-        battle.sides[1].isAI = true; battle.sides[1].ai = G.makeAI('normal');
-        battle.msg('The other player left. The AI plays now.', '#ffe27a');
-        mode = 'solo';
-      } else if (mode === 'guest') {
-        mode = 'solo'; state = 'menu'; battle = null; ui.me = 0;
-        result.classList.add('hidden'); menu.classList.remove('hidden');
+    if (live && mode === 'host') {
+      if (final || !Net.reserved) {
+        Net.reserved = ''; away = false; mode = 'solo';
+        giveAI('The other player left. The AI plays now.');
+      } else {
+        away = true;                                   // hold the battle: see hostHold
+        if (waitLeft <= 0) giveAI(battle.sides[1].name + ' lost the connection. The AI plays now.');
       }
-    }
+    } else if (live && mode === 'guest' && final) toMenu();
+    // guest, not final: the battle stays on the screen while G.Net tries to connect again
     refreshLobby();
   }
-  Net.onChange = refreshLobby;
-  Net.onOpen = function () { myReady = peerReady = false; peerTeam = null; Net.send({ t: 'hello', name: myName }); refreshLobby(); };
+  // Host: hold the battle while the guest is away. Returns true while the battle is on hold.
+  function hostHold(dt) {
+    if (mode !== 'host' || !away || waitLeft <= 0 || !battle || battle.over) return false;
+    waitLeft -= dt;
+    if (waitLeft > 0) return true;
+    giveAI(battle.sides[1].name + ' did not come back. The AI plays now.');
+    return false;
+  }
+  // Host: the guest of this battle connected again. Give back the control and send the battle.
+  function resumeGuest() {
+    var s = battle.sides[1], c = s.ctrl;
+    away = false; s.isAI = false;
+    c.mx = c.my = 0; c.guard = false; c.dodge = false; c.sig = false; c.move = -1; c.sw = -1;
+    Net.send({ t: 'resume', teams: lastTeams, names: [battle.sides[0].name, s.name] });
+    Net.send(Sync.snap(battle, [], snapN++));
+    battle.msg(s.name + ' is back.', '#8dff9a');
+  }
+  // Message on top of the battle while a player is away.
+  function overlay() {
+    var t = '', btn = '';
+    if (state === 'battle' && battle && !battle.over) {
+      if (mode === 'guest' && Net.state === 'rejoining') { t = 'Connection lost. Reconnecting…'; btn = 'Leave battle'; }
+      else if (mode === 'host' && away && waitLeft > 0) { t = battle.sides[1].name + ' lost the connection. Waiting ' + Math.ceil(waitLeft) + ' s…'; btn = 'Play against AI now'; }
+    }
+    if (t === ovText) return;
+    ovText = t;
+    $('nmtext').textContent = t; $('nmbtn').textContent = btn;
+    $('netmsg').classList.toggle('hidden', !t);
+  }
+  function saveRoom() {
+    try {
+      if (Net.role === 'host' && Net.room) sessionStorage.setItem('ab_host', Net.room);
+      else sessionStorage.removeItem('ab_host');
+    } catch (e) { /* storage is optional */ }
+  }
+  Net.onChange = function () { saveRoom(); refreshLobby(); };
+  Net.onOpen = function () {
+    myReady = peerReady = false; peerTeam = null;
+    Net.send({ t: 'hello', name: myName });
+    if (Net.role === 'host') {
+      if (mode === 'host' && state === 'battle' && battle && !battle.over && Net.reserved && Net.peerId === Net.reserved) resumeGuest();
+      else Net.send({ t: 'lobby' });
+    }
+    refreshLobby();
+  };
   Net.onClose = peerGone;
   Net.onMessage = function (m) {
     switch (m.t) {
@@ -192,6 +253,21 @@
         if (!a || !c) break;
         myReady = peerReady = false;
         startBattle(a, c, 'guest', [cleanName(m.names && m.names[0], 'Host'), cleanName(m.names && m.names[1], 'Guest')]);
+        break;
+      case 'resume':   // the host has a battle in progress for this player
+        if (Net.role !== 'guest') break;
+        var ra = cleanTeam(m.teams && m.teams[0]), rc = cleanTeam(m.teams && m.teams[1]);
+        if (!ra || !rc) break;
+        myReady = peerReady = false;
+        // After a short connection loss the battle is still on the screen. After a page reload, build it again.
+        if (!(mode === 'guest' && state === 'battle' && battle && lastTeams && lastTeams[0].join() === ra.join() && lastTeams[1].join() === rc.join()))
+          startBattle(ra, rc, 'guest', [cleanName(m.names && m.names[0], 'Host'), cleanName(m.names && m.names[1], 'Guest')]);
+        if (picks.length !== 6) { picks = rc.slice(); refresh(); }
+        break;
+      case 'lobby':    // the host has no battle for this player (for example, the host loaded the page again)
+        if (Net.role === 'guest' && mode === 'guest' && state === 'battle' && battle && !battle.over) {
+          toMenu(); notice = 'The battle stopped because the host restarted. '; refreshLobby();
+        }
         break;
       case 'i':
         if (mode === 'host' && battle && Net.role === 'host') {
@@ -220,8 +296,9 @@
     G.ROSTER.forEach(function (id) {
       var d = G.DEX[id], el = document.createElement('button');
       el.className = 'card'; el.dataset.id = id;
-      el.appendChild(spriteCanvas(id, 84));
-      el.insertAdjacentHTML('beforeend', '<b>' + d.name + '</b><div>' + chips(d.types) + '</div><small>' + d.role + '</small><i class="num"></i>');
+      el.appendChild(spriteCanvas(id, 92));
+      tcols(el, d);
+      el.insertAdjacentHTML('beforeend', '<b>' + d.name + '</b><span class="tics">' + d.types.map(function (t) { return G.typeBadge(t); }).join('') + '</span><i class="num"></i>');
       el.onclick = function () { toggle(id); };
       el.onmouseenter = el.onfocus = function () { showDetail(id); };
       grid.appendChild(el);
@@ -251,7 +328,13 @@
       if (online()) Net.send({ t: 'hello', name: myName });
     };
     $('create').onclick = function () { G.sfx('ui'); Net.host(); };
-    $('leave').onclick = function () { G.sfx('ui'); Net.leave(); peerGone(); };
+    $('leave').onclick = function () { G.sfx('ui'); Net.leave(); peerGone(true); };
+    $('nmbtn').onclick = function () {
+      if (state !== 'battle' || !battle) return;
+      G.sfx('ui');
+      if (mode === 'guest') { Net.leave(); peerGone(true); }
+      else if (mode === 'host' && away && waitLeft > 0) { waitLeft = 0; giveAI('The AI plays for ' + battle.sides[1].name + ' now.'); }
+    };
     $('copy').onclick = function () {
       var link = $('link'), done = function () { $('copy').textContent = 'Copied'; setTimeout(function () { $('copy').textContent = 'Copy link'; }, 1500); };
       link.select();
@@ -260,8 +343,10 @@
     };
     showDetail(G.ROSTER[0]);
     refresh();
-    var room = new URLSearchParams(location.search).get('room');
+    var room = new URLSearchParams(location.search).get('room'), mine = null;
+    try { mine = sessionStorage.getItem('ab_host'); } catch (e) { /* storage is optional */ }
     if (room) Net.join(room.toLowerCase());
+    else if (Net.validRoom(mine)) Net.host(mine);   // the host loaded the page again: open the same room, the link stays valid
   }
 
   // ---- battle flow --------------------------------------------------------
@@ -274,7 +359,12 @@
     if (mode === 'guest') { battle.ev.length = 0; Sync.reset(); }
     ui.auto = false; ui.paused = false; ui.note = ''; guardBtn = false; keys = {};
     outEv = []; stepN = 0; snapN = 0; inT = 0; pingT = 1.5; hiddenLast = 0;
-    R.reset();
+    away = false; waitLeft = WAIT; notice = '';
+    Net.reserved = mode === 'host' ? Net.peerId : '';
+    // online: the 2 players get the same arena, calculated from the 2 teams
+    var seed = -1, key, k;
+    if (mode !== 'solo') { key = a.join() + b.join(); seed = 0; for (k = 0; k < key.length; k++) seed = (seed * 31 + key.charCodeAt(k)) % 9973; }
+    R.reset(seed);
     acc = 0; endT = 0; state = 'battle';
     menu.classList.add('hidden'); result.classList.add('hidden');
     if (mode === 'host') startWorker();
@@ -286,7 +376,7 @@
     }).join('') + '</div>';
   }
   function showResult() {
-    state = 'result';
+    state = 'result'; away = false; Net.reserved = '';
     var w = battle.winner, t = Math.max(0, Math.round(battle.t - 2.4)), title = w === 2 ? 'Draw' : w === ui.me ? 'Victory' : 'Defeat', net = mode !== 'solo';
     result.innerHTML = '<div class="rbox"><h1 class="' + (w === 2 ? '' : w === ui.me ? 'win' : 'lose') + '">' + title + '</h1>' +
       '<p>Battle time: ' + (t / 60 | 0) + ':' + (t % 60 < 10 ? '0' : '') + t % 60 + (net ? ' · Online' : ' · Difficulty: ' + diff) + ' · Arena: ' + R.theme + '</p>' +
@@ -318,6 +408,7 @@
     if (!battle || battle.over || state !== 'battle') return;
     if (name === 'auto') { if (mode === 'solo') toggleAuto(); return; }
     if (ui.paused || ui.auto) return;
+    if (mode === 'host' && away && waitLeft > 0) return;   // the battle is on hold
     if (mode === 'guest') { Net.send({ t: 'a', k: name, i: i, ax: r1(ui.mx), ay: r1(ui.my) }); return; }
     applyAct(0, name, i);
   }
@@ -346,11 +437,11 @@
     hiddenLast = 0;
     if (document.hidden && state === 'battle' && battle && !battle.over && mode === 'solo') ui.paused = true;
   });
-  window.addEventListener('mousemove', function (e) { var p = R.toLogical(e.clientX, e.clientY); ui.mx = p.x; ui.my = p.y; });
+  window.addEventListener('mousemove', function (e) { if (state !== 'battle') return; var p = R.toArena(e.clientX, e.clientY); ui.mx = p.x; ui.my = p.y; });
   cv.addEventListener('mousedown', function (e) {
     if (state !== 'battle') return;
-    var p = R.toLogical(e.clientX, e.clientY), b = R.hitButton(p.x, p.y);
-    ui.mx = p.x; ui.my = p.y;
+    var p = R.toLogical(e.clientX, e.clientY), b = R.hitButton(p.x, p.y), ap;
+    if (!b && p.y < 452) { ap = R.toArena(e.clientX, e.clientY); ui.mx = ap.x; ui.my = ap.y; }
     if (b) { if (b.act === 'guard') guardBtn = true; else act(b.act, b.i); return; }
     if (p.y < 452) act('move', e.button === 2 ? 1 : 0);
   });
@@ -410,6 +501,7 @@
         if (!document.hidden || mode !== 'host' || !battle || state === 'menu') return;
         var now = performance.now(), dt = hiddenLast ? Math.min(0.1, (now - hiddenLast) / 1000) : 0;
         hiddenLast = now;
+        if (hostHold(dt)) return;
         simulate(dt, false);
         checkEnd(dt);
       };
@@ -424,10 +516,10 @@
   }
   // One display frame. Also callable from tests through G.tick(dt).
   function tick(dt) {
+    overlay();
     if (state === 'menu') {
       menuT += dt;
-      var dc = $('dspr');
-      if (dc && detailId) { var g = dc.getContext('2d'); g.clearRect(0, 0, 144, 144); g.drawImage(G.SPR[detailId].idle[(menuT * 5 | 0) % 4], 0, 0); }
+      if (detailId) R.preview(detailId, dt);   // live 3D model on the stage: idle, walk, wind-up, strike
       return;
     }
     if (!battle) return;
@@ -438,17 +530,19 @@
       ui.note = 'Online' + (ping >= 0 ? ' · ping ' + ping + ' ms' : '');
       R.draw(battle, Sync.alpha(performance.now()), dt, ui);
     } else {
-      if (mode === 'host') { R.hitstop = 0; ui.note = 'Online · host'; } else ui.note = '';
-      if (!ui.paused) {
+      if (mode === 'host') { R.hitstop = 0; ui.note = away ? 'Online · host · the other player is away' : 'Online · host'; } else ui.note = '';
+      var hold = ui.paused || hostHold(dt);
+      if (!hold) {
         if (R.hitstop > 0) R.hitstop -= dt;
         else simulate(dt, true);
       }
-      R.draw(battle, ui.paused || R.hitstop > 0 ? 1 : acc / STEP, ui.paused ? 0 : dt, ui);
+      R.draw(battle, hold || R.hitstop > 0 ? 1 : acc / STEP, hold ? 0 : dt, ui);
     }
     checkEnd(dt);
   }
 
   G.tick = tick; G.startBattle = startBattle;
+  G.dbg = function () { return { state: state, mode: mode, away: away, waitLeft: waitLeft, net: Net.state, role: Net.role, room: Net.room, battle: battle }; };
   buildMenu();
   requestAnimationFrame(function (ts) { last = ts; requestAnimationFrame(frame); });
 })();
