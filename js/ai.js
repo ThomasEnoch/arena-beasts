@@ -44,6 +44,28 @@
   function sigOK(b, side, m, foe, d) {
     var hp = m.hp / m.maxHp, n = 0, i;
     switch (m.d.sig.id) {
+      case 'shatter': return d < 170;
+      case 'twelfth': return d < 190;
+      case 'chrometide': return d < 520;
+      case 'symphony': return d < 560;
+      case 'zenith':
+        for (i = 0; i < b.proj.length; i++) if (b.proj[i].side !== side.idx) n++;
+        return d < 200 || n >= 2;
+      case 'brainstorm': return d < 520;
+      case 'thousandfolds': return hp < 0.7 || d < 150;
+      case 'faultline': return d < 135;
+      case 'lighthouse': return true;
+      case 'sawblade': return d < 380;
+      case 'tapestry': return d < 600;
+      case 'spectrum': return d < 580;
+      case 'threeserpents': return d < 260;
+      case 'masterwork': return d < 210 || hp < 0.5;
+      case 'truenorth': return d < 590;
+      case 'atoll': return d < 390;
+      case 'overpressure': return d < 190;
+      case 'freezeframe': return d < 500;
+      case 'stolenhour': return d < 180;
+      case 'lastwaltz': return d < 215;
       case 'caldera': return d < 170;
       case 'riptide': return d < 540 && d > 140;
       case 'overgrowth': return true;

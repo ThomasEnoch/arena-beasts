@@ -7,19 +7,28 @@ import { FX, S, wx, wz, lin, glowTexture } from './fx.js';
 import { Arena, THEMES } from './arena.js';
 import { HUD } from './hud.js';
 import { crystal, flame } from './geo.js';
+import { makeUlts } from './ults.js';
 
 const G = window.G, PI = Math.PI, TAU = PI * 2;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const ZK = { lava: 0, toxic: 1, spikes: 2, bubbles: 3, ice: 4, vines: 5, gravity: 6, volt: 7, smoke: 8 };
-const ZCOL = { lava: '#f0693a', toxic: '#a653c9', spikes: '#9aa7b5', bubbles: '#3d8fe8', ice: '#6fd0e6', vines: '#57b84a', gravity: '#f065a8', volt: '#f2c81e', smoke: '#b78ad0' };
+const ZK = { lava: 0, toxic: 1, spikes: 2, bubbles: 3, ice: 4, vines: 5, gravity: 6, volt: 7, smoke: 8, chrome: 2, basalt: 2, reef: 2, steam: 8, thread: 5 };
+// zones that grow spikes: colour and size of the spikes. ZFX: the particle style of the new zone kinds.
+const SPK = { spikes: ['#b8c4d0', 1], chrome: ['#eef4fa', 1.15], basalt: ['#5a5a66', 2.0], reef: ['#ffb4b4', 1.8] };
+const ZFX = { chrome: 'spikes', basalt: 'spikes', reef: 'bubbles', thread: 'spikes' };
+const ZCOL = { lava: '#f0693a', toxic: '#a653c9', spikes: '#9aa7b5', bubbles: '#3d8fe8', ice: '#6fd0e6', vines: '#57b84a', gravity: '#f065a8', volt: '#f2c81e', smoke: '#b78ad0', chrome: '#dfe8f2', basalt: '#b08a52', reef: '#ff9ab0', steam: '#e8f0f8', thread: '#c08cff' };
 const STATUS_TINT = { burn: '#ff7a3a', poison: '#b866dd', toxic: '#b866dd', para: '#fff27a', chill: '#9fe6ff', sleep: '#8fa0ff' };
+// natural frequency of the turn spring for each size class: a large body turns with more weight
+const TURN = { S: 15, M: 12, L: 9.5 };
 const STYLE = { cone: 'melee', dash: 'melee', line: 'shot', proj: 'shot', lob: 'shot', nova: 'slam', ring: 'slam', zone: 'slam', self: 'buff' };
 const WHITE = new THREE.Color('#ffffff'), RED = new THREE.Color('#ff5a5a'), GOLD = new THREE.Color('#ffe27a');
 const VIS = 0.62;   // creature model size for each size step
 const BASE_FOV = 30, PITCH = 51 * PI / 180, DIST = 19.6, TARGET = new THREE.Vector3(0, 0, 0.42);
 
 export const World = { hitstop: 0, theme: '' };
-let renderer, scene, camera, comp, lights, arena, fx, glCanvas, time = 0, shake = 0, darkK = 1, themeDef = THEMES[0];
+let renderer, scene, camera, comp, lights, arena, fx, ults, glCanvas, time = 0, shake = 0, darkK = 1, themeDef = THEMES[0];
+let warmB = null; const warmQ = [];
+let cine = 0, fov0 = BASE_FOV, meSide = 0;   // cine: 1 -> 0 after the start of an ultimate (dim light, small zoom)
+const UPOS = [{ x: 0, z: 0 }, { x: 0, z: 0 }];
 const slots = [], bars = [{ on: false }, { on: false }], _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 
 // ---- small shared meshes --------------------------------------------------------
@@ -102,7 +111,9 @@ World.init = function (canvas) {
   camera = new THREE.PerspectiveCamera(BASE_FOV, 16 / 9, 1, 140);
   arena = new Arena(scene); fx = new FX(scene);
   slots.push(mkSlot(0), mkSlot(1));
-  spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.24, 5), new THREE.MeshStandardMaterial({ color: '#b8c4d0', metalness: 0.9, roughness: 0.3, flatShading: true }), 120);
+  ults = makeUlts({ fx, HUD, pos: si => { const p = UPOS[si], sl = slots[si]; p.x = sl.lx || 0; p.z = sl.lz || 0; return p; }, shake: v => { shake = Math.max(shake, v); }, me: () => meSide });
+  spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.24, 5), new THREE.MeshStandardMaterial({ color: '#ffffff', metalness: 0.75, roughness: 0.35, flatShading: true }), 120);
+  for (let i = 0; i < 120; i++) spikes.setColorAt(i, lin('#b8c4d0'));
   spikes.count = 0; spikes.castShadow = true; spikes.frustumCulled = false; scene.add(spikes);
   rainPos = new Float32Array(160 * 6);
   const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -120,7 +131,7 @@ World.resize = function () {
   const w = glCanvas.clientWidth || window.innerWidth, h = glCanvas.clientHeight || window.innerHeight, pr = Math.min(1.75, window.devicePixelRatio || 1), asp = w / h;
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
   camera.aspect = asp;
-  camera.fov = asp >= 16 / 9 ? BASE_FOV : 2 * Math.atan(Math.tan(BASE_FOV * PI / 360) * (16 / 9) / asp) * 180 / PI;
+  camera.fov = fov0 = asp >= 16 / 9 ? BASE_FOV : 2 * Math.atan(Math.tan(BASE_FOV * PI / 360) * (16 / 9) / asp) * 180 / PI;
   camera.updateProjectionMatrix();
   if (comp) comp.setSize(Math.round(w * pr), Math.round(h * pr));
   fx.setView(h * pr, camera.fov, asp);
@@ -139,7 +150,7 @@ World.setTheme = function (i) {
 };
 // seed >= 0: a fixed arena (online play). Other values: a random arena.
 World.reset = function (seed) {
-  fx.clear(); shake = 0; World.hitstop = 0; darkK = 1;
+  fx.clear(); ults.clear(); shake = 0; World.hitstop = 0; darkK = 1; cine = 0;
   for (const sl of slots) { if (sl.c) sl.c.root.visible = false; sl.mon = null; sl.c = null; hideAux(sl); }
   for (const [, g] of projLive) { g.visible = false; (projPool[g.userData.type] = projPool[g.userData.type] || []).push(g); }
   projLive.clear();
@@ -176,9 +187,17 @@ World.consume = function (b, ui) {
     switch (e.k) {
       case 'msg': HUD.msg(e.txt, e.col); break;
       case 'cast':
-        HUD.callout(e.side, e.name, e.type, e.sig); G.sfx(e.sig ? 'sig' : 'cast'); arena.command(e.side);
-        if (e.sig) { fx.ring(X, Z, 2.4, 0.2, 0.5, '#ffe27a', 0.12); fx.buff(e.type, X, Z); fx.summon(X, Z, '#ffe27a'); arena.cheer = Math.max(arena.cheer, 0.7); }
+        G.sfx(e.sig ? 'sig' : 'cast'); arena.command(e.side);
+        if (e.sig) {
+          // an ultimate starts: a name card, a short stop, dim light, and the wind-up of that Beast
+          const um = b.active(e.side);
+          HUD.ultCut(e.side, e.name, e.type, um.id, um.d.epithet);
+          fx.ring(X, Z, 2.4, 0.2, 0.5, '#ffe27a', 0.12); fx.summon(X, Z, '#ffe27a');
+          ults.cast(um.d.sig.id, e, um.d.sigMove.wind / 1000);
+          cine = 1; World.hitstop = Math.max(World.hitstop, 0.14); arena.cheer = Math.max(arena.cheer, 0.9);
+        } else HUD.callout(e.side, e.name, e.type, false);
         break;
+      case 'ult': ults.event(e); arena.cheer = Math.max(arena.cheer, 0.8); break;
       case 'fire':
         ty = e.mv.type; c = G.TCOL[ty];
         switch (e.mv.shape) {
@@ -267,8 +286,8 @@ function newMon(sl, m) {
   let c = sl.cache.get(m.id);
   if (!c) { c = new Creature(m.id); sl.cache.set(m.id, c); scene.add(c.root); }
   sl.c = c; c.root.visible = true;
-  const t = sl.pose; t.w = 0; t.mv = t.a = t.s = t.h = t.sw = t.sl = t.bl = t.gl = t.lk = 0;
-  sl.yaw = -m.face; sl.lx = wx(m.x); sl.lz = wz(m.y); sl.sq = sl.sqv = sl.swv = sl.slv = 0; sl.st = m.state; sl.blT = 1 + Math.random() * 3; sl.amb = 0; sl.stepN = 0; sl.lh = 0;
+  const t = sl.pose; t.w = 0; t.mv = t.a = t.s = t.h = t.sw = t.sl = t.bl = t.gl = t.lk = t.u = 0;
+  sl.yaw = -m.face; sl.yawV = 0; t.vf = t.vs = t.af = t.as = t.va = t.tn = t.yr = t.hd = t.hx = t.hz = 0; sl.lx = wx(m.x); sl.lz = wz(m.y); sl.sq = sl.sqv = sl.swv = sl.slv = 0; sl.st = m.state; sl.blT = 1 + Math.random() * 3; sl.amb = 0; sl.stepN = 0; sl.lh = 0;
 }
 function styleOf(mv) {
   if (mv.shape === 'line' && mv.range < 240) return 'melee';
@@ -293,8 +312,16 @@ function updMon(b, m, alpha, ui, dt) {
   const gx = m.px + (m.x - m.px) * alpha, gy = m.py + (m.y - m.py) * alpha, X = wx(gx), Z = wz(gy), foe = b.active(1 - si);
   let q, e, n, tg;
   // turn to the aim direction
-  let dy = -m.face - sl.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-  const turn = dy * Math.min(1, dt * 14); sl.yaw += dt > 0 ? turn : 0;
+  // a spring with a top speed turns the body: it starts, swings and settles with weight
+  let dy = -m.face - sl.yaw, turn = 0; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  if (dt > 0) {
+    const wn = TURN[d.size] * (m.state === 'idle' || m.state === 'rec' || m.state === 'stun' ? 1 : 1.6), h = Math.min(dt, 0.033);
+    sl.yawV += (dy * wn * wn - sl.yawV * 1.75 * wn) * h;
+    sl.yawV = clamp(sl.yawV, -wn * 0.9, wn * 0.9);
+    turn = sl.yawV * h;
+    if (turn * dy > 0 && Math.abs(turn) > Math.abs(dy)) { turn = dy; sl.yawV *= 0.4; }
+    sl.yaw += turn; dy -= turn;
+  }
   const cs = Math.cos(sl.yaw), sn = Math.sin(sl.yaw);
   const ddx = X - sl.lx, ddz = Z - sl.lz, dist = Math.sqrt(ddx * ddx + ddz * ddz), tele = dist > 1.4;
   sl.lx = X; sl.lz = Z;
@@ -302,14 +329,32 @@ function updMon(b, m, alpha, ui, dt) {
     const vx = tele ? 0 : ddx / dt, vz = tele ? 0 : ddz / dt, vf = vx * cs - vz * sn, vs = vx * sn + vz * cs;
     t.tm += dt; t.p += dt * (2.6 + 2.4 * t.a); t.o += dt * (1.3 + 4 * t.a + 2 * t.s);
     const moving = m.moving || m.state === 'dash' || m.state === 'dodge';
-    t.mv += ((moving ? 1 : 0) - t.mv) * Math.min(1, dt * 10);
+    // a turn on the spot: the legs take small steps
+    const tip = (m.state === 'idle' || m.state === 'rec') ? Math.min(1, Math.abs(sl.yawV) / 5) : 0;
+    t.mv += ((moving ? 1 : tip > 0.15 ? 0.5 * tip : 0) - t.mv) * Math.min(1, dt * 10);
     if (!tele) t.w += dist * 3.9 / sc;
+    if (!moving) t.w += Math.abs(turn) * 2.2;
+    // speed and acceleration of the body in its own axes, in model units (for lean and for the spring bones)
+    const im = 1 / sc, nvf = tele ? 0 : vf * im, nvs = tele ? 0 : vs * im, kq = Math.min(1, dt * 16);
+    t.af += (clamp((nvf - t.vf) / dt, -70, 70) - t.af) * kq; t.as += (clamp((nvs - t.vs) / dt, -70, 70) - t.as) * kq;
+    t.vf = nvf; t.vs = nvs; t.va = clamp((m.z - sl.lh) * S * im / dt, -12, 12);
+    t.yr = sl.yawV; t.tn += (clamp(-sl.yawV / 6, -1, 1) - t.tn) * Math.min(1, dt * 14);
+    t.hd += (clamp(-dy, -1.3, 1.3) - t.hd) * Math.min(1, dt * 18);
     tg = m.state === 'wind' ? Math.min(1, (1 - m.st / m.stMax) * 1.6) : m.state === 'special' ? 1 : m.guarding ? 0.3 : 0;
+    tg = tg * tg * (3 - 2 * tg);   // ease in and out
     t.a += (tg - t.a) * Math.min(1, dt * (tg > t.a ? 14 : 22));
     if (m.cur) t.k = m.cur.isSig ? (m.cur.shape === 'self' ? 'buff' : 'slam') : styleOf(m.cur);
     if (sl.st === 'wind' && (m.state === 'rec' || m.state === 'dash' || m.state === 'idle')) { t.s = 1; sl.sqv += 2.2; }
-    if (m.state === 'dash') t.s = 1; else t.s = Math.max(0, t.s - dt * 3.4);
-    if (m.hitFlash > 0) { if (t.h < 0.5) sl.sqv -= 2.6; t.h = 1; }
+    if (m.state === 'dash') t.s = 1; else t.s = t.s > 0.012 ? t.s * Math.exp(-dt * 5.2) : 0;   // fast out, slow settle
+    if (m.hitFlash > 0) {
+      if (t.h < 0.5) {
+        sl.sqv -= 2.6;
+        // the direction of the push, in the axes of the body: away from the opponent
+        const hxw = X - wx(foe.x), hzw = Z - wz(foe.y), hl = Math.sqrt(hxw * hxw + hzw * hzw) || 1;
+        t.hx = (hxw * cs - hzw * sn) / hl; t.hz = (hxw * sn + hzw * cs) / hl;
+      }
+      t.h = 1;
+    }
     else if (m.state === 'stun' || m.state === 'faint') t.h = 1;
     else t.h = Math.max(0, t.h - dt * 3.5);
     tg = clamp(vf / 4.8, -1, 1); sl.swv += ((tg - t.sw) * 90 - sl.swv * 9) * dt; t.sw = clamp(t.sw + sl.swv * dt, -1.5, 1.5);
@@ -321,8 +366,13 @@ function updMon(b, m, alpha, ui, dt) {
     if (sl.blT < 0) { t.bl = 1; if (sl.blT < -0.12) { t.bl = 0; sl.blT = 1.8 + Math.random() * 3.6; } }
     if (m.status === 'sleep') t.bl = 1;
     const fxx = wx(foe.x) - X, fzz = wz(foe.y) - Z, fl = Math.sqrt(fxx * fxx + fzz * fzz) || 1;
-    t.lk += (clamp(-(fxx * sn + fzz * cs) / fl * 1.3, -1, 1) - t.lk) * Math.min(1, dt * 6);
+    // the eyes follow the opponent. At rest they also look round a little.
+    const glance = m.state === 'idle' && !moving ? 0.32 * Math.sin(time * 0.61 + si * 3.1) * Math.sin(time * 0.37 + si) : 0;
+    t.lk += (clamp(-(fxx * sn + fzz * cs) / fl * 1.3 + glance, -1, 1) - t.lk) * Math.min(1, dt * 6);
     t.gl += ((m.charge >= 100 ? 1 : 0) - t.gl) * Math.min(1, dt * 4);
+    // u: the ultimate is active (wind-up, the action, and the time that its form lasts)
+    tg = (m.cur && m.cur.isSig && (m.state === 'wind' || m.state === 'special' || m.state === 'rec')) || m.bulwark > 0 || m.cyclone > 0 || m.veil > 0.05 || m.ultT > 0 ? 1 : 0;
+    t.u += (tg - t.u) * Math.min(1, dt * (tg > t.u ? 7 : 3));
     sl.st = m.state;
   }
   // whole-body motion for each state
@@ -361,6 +411,14 @@ function updMon(b, m, alpha, ui, dt) {
       if (dt > 0) fx.dashFx(d.types[0], X, Z, cs, -sn, R);
       break;
     case 'special': oy = 0.08 + Math.sin(time * 5) * 0.04; if (dt > 0 && !(m.sp && m.sp.untarget)) fx.spark(X + (Math.random() - 0.5) * R * 2, Math.random() * 1.2, Z + (Math.random() - 0.5) * R * 2, 0, 1.5, 0, 0.4, 0.2, tc, 0, 0); break;
+  }
+  // the whole body: lean into a turn and into a side step, dip with the acceleration, rock with a hit, bob with each step
+  if (m.state !== 'faint' && m.state !== 'enter') {
+    const spd = Math.min(1, Math.sqrt(t.vf * t.vf + t.vs * t.vs) / 2.6), hov = d.hover ? 1 : 0;
+    rx += t.tn * (hov ? 0.30 : 0.15) * (0.3 + 0.7 * spd) + clamp(t.vs / 2.6, -1, 1) * (hov ? 0.16 : 0.05);
+    rz -= clamp(t.af / 45, -1, 1) * (hov ? 0.15 : 0.06) + clamp(t.vf / 2.6, -1, 1) * (hov ? 0.07 : 0);
+    if (t.h > 0) { rz -= t.hx * 0.15 * t.h; rx += t.hz * 0.15 * t.h; }
+    if (!hov && m.z < 1) oy += Math.abs(Math.sin(t.w)) * 0.045 * t.mv;
   }
   if (m.iframes > 0 && m.state !== 'enter') fade *= 0.55;
   if (m.veil > 0) fade *= si === ui.me ? 0.5 : 0.1;
@@ -433,13 +491,20 @@ function drawZones(b, me, dt) {
     const z = b.zones[i], a = Math.min(1, z.t / 0.3, (z.dur - z.t) / 0.8), col = ZCOL[z.kind] || '#ffffff', X = wx(z.x), Z = wz(z.y), R = z.radius * S;
     if (a <= 0) continue;
     fx.zone(ZK[z.kind] || 0, X, Z, R, a, col, z.side === me ? col : '#ff5a5a');
-    if (z.kind === 'spikes') for (k = 0; k < 14 && ns < 120; k++, ns++) {
-      const an = k * 2.4 + i, rr = R * Math.sqrt((k + 0.5) / 14) * 0.9;
-      D4.position.set(X + Math.cos(an) * rr, 0.12 * a, Z + Math.sin(an) * rr); D4.rotation.set(Math.sin(k * 7) * 0.3, k, Math.cos(k * 5) * 0.3); D4.scale.setScalar(a * (0.8 + (k % 3) * 0.25)); D4.updateMatrix(); spikes.setMatrixAt(ns, D4.matrix);
+    const sk = SPK[z.kind];
+    if (sk) for (k = 0; k < 14 && ns < 120; k++, ns++) {
+      // reef and basalt stand in a ring. Other spikes fill the circle.
+      const ringed = z.kind === 'reef' || z.kind === 'basalt', an = ringed ? k / 14 * TAU + i : k * 2.4 + i, rr = ringed ? R * (0.82 + (k % 3) * 0.06) : R * Math.sqrt((k + 0.5) / 14) * 0.9, sc = a * (0.8 + (k % 3) * 0.25) * sk[1];
+      D4.position.set(X + Math.cos(an) * rr, 0.12 * sc, Z + Math.sin(an) * rr); D4.rotation.set(Math.sin(k * 7) * 0.3, k, Math.cos(k * 5) * 0.3); D4.scale.setScalar(sc); D4.updateMatrix(); spikes.setMatrixAt(ns, D4.matrix);
+      spikes.setColorAt(ns, lin(z.kind === 'reef' && k % 3 === 0 ? '#f4ece4' : sk[0]));
     }
-    if (dt > 0 && Math.random() < 0.3 + R * 0.12) { const an = Math.random() * TAU, rr = R * Math.sqrt(Math.random()); fx.zoneFx(z.kind, X + Math.cos(an) * rr, Z + Math.sin(an) * rr, X, Z); }
+    if (dt > 0 && Math.random() < 0.3 + R * 0.12) {
+      const an = Math.random() * TAU, rr = R * Math.sqrt(Math.random()), px = X + Math.cos(an) * rr, pz = Z + Math.sin(an) * rr;
+      if (z.kind === 'steam') fx.puff(px, 0.15, pz, 0, 0.7, 0, 1.3, 0.55, '#ffffff', -0.2, 1, 1.4);
+      else fx.zoneFx(ZFX[z.kind] || z.kind, px, pz, X, Z);
+    }
   }
-  spikes.count = ns; spikes.instanceMatrix.needsUpdate = true;
+  spikes.count = ns; spikes.instanceMatrix.needsUpdate = true; if (spikes.instanceColor) spikes.instanceColor.needsUpdate = true;
 }
 function drawPend(b, me, alpha, dt) {
   let nl = 0;
@@ -511,12 +576,26 @@ function drawRain(on, dt) {
 World.draw = function (b, alpha, dt, ui) {
   let i, m;
   time += dt;
-  const me = ui.me, a0 = b.active(0), a1 = b.active(1);
+  const me = meSide = ui.me, a0 = b.active(0), a1 = b.active(1);
   fx.begin();
+  // Build the creatures of the 2 teams before they enter, one in each frame, so that a switch has no pause.
+  if (b !== warmB) { warmB = b; warmQ.length = 0; for (i = 0; i < 2; i++) for (m of b.sides[i].team) if (!slots[i].cache.has(m.id)) warmQ.push(i, m.id); }
+  if (warmQ.length) {
+    const wid = warmQ.pop(), wsi = warmQ.pop(), wsl = slots[wsi];
+    if (!wsl.cache.has(wid)) {
+      try {
+        const wc = new Creature(wid);
+        wsl.cache.set(wid, wc); scene.add(wc.root);
+        renderer.compile(wc.root, camera, scene);
+        wc.root.visible = false;
+      } catch (e) { /* the creature is built when it enters */ }
+    }
+  }
   arena.update(dt, time);
   drawZones(b, me, dt);
   for (i = 0; i < 2; i++) { m = i ? a1 : a0; if (m.state === 'wind' && m.cur && m.cur.shape !== 'self') drawTele(m, alpha, me); }
   drawPend(b, me, alpha, dt);
+  ults.update(dt);
   if (!ui.auto) {   // aim guide of the player
     m = b.active(me);
     if (!m.fainted && m.state !== 'bench' && m.state !== 'faint' && m.state !== 'enter') {
@@ -529,7 +608,11 @@ World.draw = function (b, alpha, dt, ui) {
   drawProj(b, alpha, dt);
   drawRain(!!b.weather, dt);
   // darkness of Nightfall: the lights go down, glow parts stay bright
-  const dk = b.dark ? (b.dark.side === me ? 0.5 : 0.28) : 1;
+  // the start of an ultimate: the light goes down for a moment and the camera moves in a little
+  if (cine > 0) cine = Math.max(0, cine - dt / 1.2);
+  const ck = Math.min(1, cine * 3) * Math.min(1, cine * 3);
+  const dk = (b.dark ? (b.dark.side === me ? 0.5 : 0.28) : 1) * (1 - 0.42 * ck);
+  if (camera.fov !== fov0 * (1 - 0.045 * ck)) { camera.fov = fov0 * (1 - 0.045 * ck); camera.updateProjectionMatrix(); }
   darkK += (dk - darkK) * Math.min(1, dt * 5 + (dt === 0 ? 1 : 0));
   lights.key.intensity = themeDef.keyK * darkK * (b.weather ? 0.8 : 1); lights.hemi.intensity = 0.55 * darkK; lights.back.intensity = 1.5 * darkK;
   renderer.toneMappingExposure = 0.62 + 0.38 * darkK;

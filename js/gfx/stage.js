@@ -19,7 +19,7 @@ export function makeRenderer(canvas, o = {}) {
 // Soft studio reflections for all standard materials of a scene.
 export function setEnv(renderer, scene, k) {
   const pm = new THREE.PMREMGenerator(renderer), env = new RoomEnvironment();
-  scene.environment = pm.fromScene(env, 0.04).texture;
+  scene.environment = pm.fromScene(env, 0.012).texture;   // a small blur: reflections stay sharp on glossy surfaces
   pm.dispose();
   if (k !== undefined && 'environmentIntensity' in scene) scene.environmentIntensity = k;
 }

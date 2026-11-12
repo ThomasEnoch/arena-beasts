@@ -287,7 +287,7 @@ export class Sculpt {
       { const ks = gy > 0 ? 1 + gy * sT : 1 + gy * sB; col[0] *= ks; col[1] *= ks; col[2] *= ks; }
       for (const fn of this.paints) fn(pt, nn, col, info);
       const mt = 1 + mA * (noise(x * mF, y * mF, z * mF) * 0.65 + noise(x * mF * 2.7, y * mF * 2.7, z * mF * 2.7) * 0.35 - 0.5) * 2;
-      const sh = (0.42 + 0.58 * info.ao) * mt;
+      const sh = (0.6 + 0.4 * info.ao) * mt;   // contact shadow: light, so that folds do not look dirty
       color[v * 3] = col[0] * sh; color[v * 3 + 1] = col[1] * sh; color[v * 3 + 2] = col[2] * sh;
       fx[v * 3] = info.glow; fx[v * 3 + 1] = info.gloss; fx[v * 3 + 2] = info.metal;
       // the 4 strongest bones

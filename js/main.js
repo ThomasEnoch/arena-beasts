@@ -71,6 +71,7 @@
     tcols($('stage'), d);
     $('smark').innerHTML = G.typeSvg(d.types[0]);
     $('sname').textContent = d.name;
+    $('sepi').textContent = d.epithet || '';
     $('stypes').innerHTML = chips(d.types);
     $('srole').textContent = d.role + ' · ' + d.pref + ' range';
     $('sblurb').textContent = d.blurb;
@@ -81,10 +82,45 @@
     var moves = d.moves.map(function (mv) {
       var fxs = fxText(mv);
       return '<div class="move">' + G.typeBadge(mv.type) + '<b>' + mv.name + '</b><span class="pw">' + (mv.power ? '<strong>' + mv.power * (mv.count || 1) + '</strong> power' : CAT[mv.cat]) + '</span>' +
-        '<div class="ms">' + G.SHAPE_LABEL[mv.shape] + ' · ' + mv.cd + ' s cooldown</div>' + (fxs ? '<div class="mf">' + fxs + '</div>' : '') + '</div>';
+        '<div class="ms">' + G.SHAPE_LABEL[mv.shape] + ' · ' + mv.cd + ' s cooldown' + (fxs ? ' · <span class="mf">' + fxs + '</span>' : '') + '</div></div>';
     }).join('');
+    $('sstats').innerHTML = rows;
+    if (storyOpen) renderStory(id);
     $('detail').innerHTML = '<section class="dstats"><h3>Stats</h3>' + rows + '</section><section class="dmoves"><h3>Moves</h3>' + moves +
       '</section><section class="dsig"><h3>Signature power</h3><div class="sig"><div class="sh">' + G.typeBadge(d.sig.type) + '<b>' + d.sig.name + '</b></div><p>' + d.sig.desc + '</p><p class="cost">Cost: ' + d.sig.cost + '</p></div></section>';
+  }
+  // ---- stories: read from LORE.md, the one source of the canon -------------
+  var LORE = {}, storyOpen = false;
+  function loadLore() {
+    if (!window.fetch) return;
+    fetch('LORE.md').then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+      t.split(/^### /m).slice(1).forEach(function (sec) {
+        var idm = /\x60([a-z]+)\x60\s*·\s*[^·\n]+·\s*([^\n]+)/.exec(sec), f = [], re = /^- \*\*(.+?):\*\*\s*(.+)$/gm, m;
+        if (!idm || !G.DEX[idm[1]]) return;
+        while ((m = re.exec(sec))) if (m[1] !== 'Look') f.push([m[1], m[2].replace(/[*\x60]/g, '')]);
+        LORE[idm[1]] = { guilds: idm[2].trim(), f: f };
+      });
+      if (Object.keys(LORE).length) $('sbtn').classList.remove('hidden');
+    }).catch(function () { /* the stories are optional */ });
+  }
+  function renderStory(id) {
+    var L = LORE[id], el = $('story'), d = G.DEX[id], p, b, i;
+    el.textContent = '';
+    if (!L) return;
+    p = document.createElement('h3'); p.textContent = d.name + ' - ' + d.epithet; el.appendChild(p);
+    p = document.createElement('p'); p.className = 'guilds'; p.textContent = 'Guilds: ' + L.guilds; el.appendChild(p);
+    for (i = 0; i < L.f.length; i++) {
+      p = document.createElement('p'); b = document.createElement('b'); b.textContent = L.f[i][0];
+      p.appendChild(b); p.appendChild(document.createTextNode(L.f[i][1])); el.appendChild(p);
+    }
+    el.scrollTop = 0;
+  }
+  function toggleStory(on) {
+    storyOpen = on === undefined ? !storyOpen : on;
+    $('story').classList.toggle('hidden', !storyOpen);
+    $('sbtn').textContent = storyOpen ? 'Close story' : 'Story';
+    $('sbtn').classList.toggle('on', storyOpen);
+    if (storyOpen) renderStory(detailId);
   }
   function refresh() {
     var cards = document.querySelectorAll('.card'), i, id, n;
@@ -311,6 +347,9 @@
     };
     $('random').onclick = function () { picks = shuffled().slice(0, 6); G.sfx('ui'); teamChanged(); };
     $('clear').onclick = function () { picks = []; G.sfx('ui'); teamChanged(); };
+    $('sbtn').onclick = function () { G.sfx('ui'); toggleStory(); };
+    window.addEventListener('keydown', function (e) { if (e.code === 'Escape' && storyOpen && state === 'menu') toggleStory(false); });
+    loadLore();
     $('start').onclick = function () {
       if (picks.length !== 6) return;
       G.sfx('ui');

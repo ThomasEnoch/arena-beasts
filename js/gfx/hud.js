@@ -43,7 +43,10 @@ HUD.floatTxt = function (x, y, h, s, col, size, dur) {
 };
 let msgs = [], banner = null;
 const callout = [null, null];
-HUD.reset = function () { fn = 0; msgs.length = 0; callout[0] = callout[1] = null; banner = null; };
+let ultCut = null;
+HUD.reset = function () { fn = 0; msgs.length = 0; callout[0] = callout[1] = null; banner = null; ultCut = null; };
+// the name card of an ultimate: portrait, title of the Beast, name of the ultimate
+HUD.ultCut = function (side, name, type, id, epithet) { ultCut = { side, name, type, id, epithet: epithet || '', t: 0 }; };
 HUD.banner = function (txt, col, dur) { banner = { txt, col: col || C.ivory, t: 0, max: dur || 1.4 }; };
 HUD.msg = function (txt, col) { msgs.push({ txt, col, t: 0 }); if (msgs.length > 3) msgs.shift(); };
 HUD.callout = function (side, name, type, sig) { callout[side] = { name, type, t: 0, sig }; };
@@ -221,6 +224,35 @@ function topCentre(b, dt) {
   ctx.globalAlpha = 1;
 }
 
+function drawUltCut(dt) {
+  const c = ultCut;
+  if (!c) return;
+  c.t += dt;
+  if (c.t > 1.7) { ultCut = null; return; }
+  const a = Math.min(1, c.t / 0.1, (1.7 - c.t) / 0.3), w = 430, h = 60, e = Math.min(1, c.t / 0.18), slide = (1 - e * (2 - e)) * 160;
+  const x = c.side ? W - 14 - w + slide : 14 - slide, y = 100, col = G.TCOL[c.type], pw = 96, px = c.side ? x + w - pw : x, tx = c.side ? x + 18 : x + pw + 18;
+  ctx.save(); ctx.globalAlpha = a;
+  rr(x, y, w, h, 12); ctx.clip();
+  ctx.fillStyle = 'rgba(13,22,38,0.95)'; ctx.fillRect(x, y, w, h);
+  // a slanted block in the type colour behind the portrait
+  ctx.fillStyle = col; ctx.beginPath();
+  if (c.side) { ctx.moveTo(x + w - pw - 22, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - pw + 6, y + h); }
+  else { ctx.moveTo(x, y); ctx.lineTo(x + pw + 22, y); ctx.lineTo(x + pw - 6, y + h); ctx.lineTo(x, y + h); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(x, y, w, 2);
+  const spr = G.SPR[c.id] && G.SPR[c.id].idle[0];
+  if (spr) { ctx.save(); ctx.translate(px + pw / 2, y + h / 2 + 2); ctx.scale(c.side ? -1 : 1, 1); ctx.drawImage(spr, -45, -47, 90, 90); ctx.restore(); }
+  ctx.restore();
+  ctx.globalAlpha = a;
+  ctx.strokeStyle = C.brass; ctx.lineWidth = 2; rr(x + 1, y + 1, w - 2, h - 2, 11); ctx.stroke();
+  G.drawTypeIcon(ctx, c.type, tx + 10, y + 18, 19);
+  txt(c.epithet || 'Signature power', tx + 26, y + 23, '600 13px ' + SANS, C.brass, 'left');
+  let fs = 25; ctx.font = '700 ' + fs + 'px ' + SANS;
+  while (fs > 15 && ctx.measureText(c.name).width > w - pw - 40) { fs--; ctx.font = '700 ' + fs + 'px ' + SANS; }
+  txt(c.name, tx, y + 49, '700 ' + fs + 'px ' + SANS, C.ivory, 'left');
+  ctx.globalAlpha = 1;
+}
+
 function drawCallouts(dt) {
   for (let si = 0; si < 2; si++) {
     const c = callout[si]; if (!c) continue;
@@ -277,6 +309,7 @@ HUD.draw = function (b, ui, dt, proj, bars) {
   }
   ctx.globalAlpha = 1;
   drawCallouts(dt);
+  drawUltCut(dt);
   panel(b, 0, dt); panel(b, 1, dt);
   topCentre(b, dt);
   bottomBar(b, ui);

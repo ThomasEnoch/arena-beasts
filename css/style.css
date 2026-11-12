@@ -82,17 +82,31 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
   background: radial-gradient(110% 80% at 50% 44%, color-mix(in srgb, var(--c1, #58a6ff) 62%, #fff) 0%, var(--c1, #58a6ff) 40%, color-mix(in srgb, var(--c2, #58a6ff) 58%, #0b1424) 100%); }
 #smark { position: absolute; left: 50%; top: 46%; width: 82%; aspect-ratio: 1; transform: translate(-50%, -50%); color: rgba(255, 255, 255, .2); }
 #smark svg { width: 100%; height: 100%; display: block; }
-#stagecv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#stagecv { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 64px); display: block; }
 #shead { position: absolute; left: 16px; right: 16px; top: 12px; }
 #sname { margin: 0 0 6px; font-size: clamp(30px, 3.4vw, 46px); font-weight: 700; line-height: 1; text-shadow: 0 3px 0 rgba(10, 18, 32, .45); }
+#sepi { margin: 0 0 7px; font-size: 15px; font-weight: 600; color: var(--hi2); text-shadow: 0 2px 0 rgba(10, 18, 32, .45); }
 #stypes { display: flex; flex-wrap: wrap; gap: 6px; }
 #srole { display: inline-block; margin: 6px 0 0; padding: 3px 12px; border-radius: 14px; background: rgba(13, 22, 38, .78); font-size: 14px; font-weight: 500; color: var(--sub); text-transform: capitalize; }
-#sblurb { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 10px 16px 12px; background: rgba(12, 20, 36, .8); font-size: 15px; font-weight: 500; }
+/* the story of the creature, from LORE.md */
+#sbtn { position: absolute; right: 12px; top: 12px; z-index: 3; height: 36px; padding: 0 14px; background: rgba(13, 22, 38, .82); border: 2px solid var(--hi); border-radius: var(--r); font-size: 15px; font-weight: 600; color: var(--hi2); }
+#sbtn:hover, #sbtn.on { background: var(--hi); color: #231a00; }
+#story { position: absolute; inset: 0; z-index: 2; overflow: auto; padding: 16px 20px 20px; background: rgba(13, 22, 38, .95); font-size: 15px; line-height: 1.42; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#story h3 { margin: 0 120px 2px 0; font-size: 22px; font-weight: 700; color: var(--text); }
+#story p { margin: 0 0 10px; color: var(--text); }
+#story p.guilds { margin-bottom: 14px; color: var(--hi2); font-weight: 600; }
+#story p b { display: block; font-weight: 700; color: var(--hi); }
+#sfoot { position: absolute; left: 0; right: 0; bottom: 0; padding: 9px 16px 11px; background: rgba(12, 20, 36, .84); }
+#sstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 16px; row-gap: 1px; margin-bottom: 7px; }
+#sstats .stat { grid-template-columns: 54px 1fr 28px; gap: 6px; height: 21px; }
+#sblurb { margin: 0; font-size: 15px; font-weight: 500; }
 
 /* facts: stats, moves, signature power */
 #detail { min-height: 0; overflow: auto; padding: 12px 14px; background: var(--panel); border-radius: 16px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #detail h3 { margin: 12px 0 7px; font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
 #detail section:first-child h3 { margin-top: 0; }
+#detail .dstats { display: none; }   /* wide windows show the stats on the stage */
+#detail .dmoves h3 { margin-top: 0; }
 .stat { display: grid; grid-template-columns: 78px 1fr 36px; align-items: center; gap: 8px; height: 22px; }
 .stat span { color: var(--sub); font-weight: 500; font-size: 14px; }
 .stat b { text-align: right; font-size: 15px; font-weight: 700; }
@@ -106,12 +120,12 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
 .move .pw { font-size: 14px; font-weight: 600; color: var(--sub); white-space: nowrap; text-align: right; }
 .move .pw strong { font-size: 17px; color: var(--text); }
 .ms { grid-column: 2 / 4; color: var(--sub); font-size: 13px; }
-.mf { grid-column: 2 / 4; color: var(--hi2); font-size: 13px; }
+.mf { color: var(--hi2); }
 .sig { padding: 9px 12px; background: var(--panel2); border-left: 5px solid var(--hi); border-radius: var(--r); }
 .sig .sh { display: flex; align-items: center; gap: 9px; }
 .sig .tb { width: 28px; height: 28px; box-shadow: none; }
 .sig b { font-size: 17px; font-weight: 700; color: var(--hi); }
-.sig p { margin: 6px 0 0; font-size: 14px; color: var(--text); }
+.sig p { margin: 5px 0 0; font-size: 13.5px; line-height: 1.3; color: var(--text); }
 .sig .cost { color: #ffb3a6; }
 
 /* team tray */
@@ -165,11 +179,16 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
   #menu main { grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); grid-template-rows: minmax(150px, 36%) minmax(0, 1fr); gap: 10px; }
   #grid { grid-row: 1 / 3; gap: 6px; }
   #stage { grid-column: 2; grid-row: 1; }
-  #stagecv { left: 44%; width: 56%; }
+  #stagecv { left: 44%; width: 56%; height: 100%; }
+  #sstats { display: none; }
+  #detail .dstats { display: block; }
   #smark { left: 72%; top: 50%; width: auto; height: 120%; }
   #shead { right: 54%; top: 10px; left: 14px; }
-  #sname { font-size: 30px; }
-  #sblurb { left: 14px; right: 54%; bottom: 10px; padding: 0; background: none; font-size: 14px; line-height: 1.25; text-shadow: 0 1px 2px rgba(10, 18, 32, .6); }
+  #sname { font-size: 30px; margin-bottom: 3px; }
+  #sepi { margin-bottom: 5px; font-size: 14px; }
+  #srole { display: none; }
+  #sfoot { left: 14px; right: 54%; bottom: 10px; padding: 0; background: none; }
+  #sblurb { font-size: 14px; line-height: 1.25; text-shadow: 0 1px 2px rgba(10, 18, 32, .6); }
   #detail { grid-column: 2; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 14px; align-content: start; padding: 10px 12px; }
   #detail .dstats { grid-column: 1; grid-row: 1; }
   #detail .dsig { grid-column: 1; grid-row: 2; }

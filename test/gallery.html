@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arena Beasts - model gallery</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a2238; overflow: hidden; font: 600 13px "Trebuchet MS", sans-serif; color: #fff; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  #labels div { position: fixed; padding: 2px 6px; background: rgba(10, 16, 30, .7); border-radius: 4px; }
+  #err { position: fixed; left: 8px; bottom: 8px; color: #ff8a8a; white-space: pre; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+<!-- Development tool. Shows many creatures in a grid, one view each.
+     Options: ?ids=a,b,c (default: all 20)  &cols=5  &pose=idle|move|wind|strike|hurt|ult  &k=melee|shot|slam|buff  &yaw=-50  &pitch=22  &zoom=1  &still=1  &t=0.4  &game=1 (the camera of the battle: high view) -->
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="err"></div>
+<script src="../js/data.js"></script>
+<script type="module">
+import { THREE, makeRenderer, setEnv, lightRig } from '../js/gfx/stage.js';
+import { Creature, newPose, register } from '../js/gfx/rig.js';
+
+const q = new URLSearchParams(location.search), G = window.G;
+const ids = (q.get('ids') || G.ROSTER.join(',')).split(',').filter(Boolean), cols = +(q.get('cols') || Math.min(5, ids.length));
+const poseName = q.get('pose') || 'idle', yaw = +(q.get('yaw') || -50), game = q.get('game'), pitch = +(q.get('pitch') || (game ? 51 : 22)), zoom = +(q.get('zoom') || 1), still = q.get('still');
+const cv = document.getElementById('c'), renderer = makeRenderer(cv), err = document.getElementById('err');
+const scene = new THREE.Scene();
+setEnv(renderer, scene);
+lightRig(scene, { area: 5 });
+const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 40), new THREE.MeshStandardMaterial({ color: '#4c5878', roughness: 0.9 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const cam = new THREE.PerspectiveCamera(game ? 16 : 24, 1, 0.1, 100);
+
+const list = [];
+for (const id of ids) {
+  try {
+    register((await import('../js/gfx/models/' + id + '.js')).default);
+    const c = new Creature(id);
+    c.root.rotation.y = yaw * Math.PI / 180; c.root.visible = false;
+    const sc = (G.SIZE && G.DEX[id] && G.SIZE[G.DEX[id].size]) ? G.SIZE[G.DEX[id].size].sc : 1;
+    c.root.scale.setScalar(sc);
+    scene.add(c.root); list.push({ id, c, pose: newPose() });
+  } catch (e) { err.textContent += id + ': ' + e.message + '\n'; list.push({ id, c: null }); }
+}
+const rows = Math.ceil(list.length / cols), labels = document.getElementById('labels');
+list.forEach((o, i) => { const d = document.createElement('div'); d.textContent = (G.DEX[o.id] ? G.DEX[o.id].name : o.id) + (o.c ? '' : ' (error)'); labels.appendChild(d); o.label = d; });
+
+// pose=sim: a loop of 9 seconds that moves the creature as the game does it.
+// rest, start and run, turn to the L while it runs, side step, stop, hit from the front, turn on the spot, strike.
+function sim(o, tm) {
+  const t = o.pose, c = o.c, S = o.sim || (o.sim = { tm, vf: 0, vs: 0, yawV: 0, yaw: yaw * Math.PI / 180, w: 0, s: 0, h: 0, a: 0, sw: 0, sl: 0 }), ph = tm % 9;
+  const dt = Math.min(0.05, Math.max(0, tm - S.tm)); S.tm = tm;
+  const run = ph > 1 && ph < 5.2, side = ph > 4 && ph < 5.2, tvf = run && !side ? 2.6 : 0, tvs = side ? 2.2 : 0;
+  const tyr = ph > 2.4 && ph < 3.8 ? -3.2 : ph > 6.4 && ph < 7.4 ? 5 : 0;   // three.js sign: + = toward the R side
+  const k = Math.min(1, dt * 9), nvf = S.vf + (tvf - S.vf) * k, nvs = S.vs + (tvs - S.vs) * k;
+  if (dt > 0) { t.af += ((nvf - S.vf) / dt - t.af) * Math.min(1, dt * 16); t.as += ((nvs - S.vs) / dt - t.as) * Math.min(1, dt * 16); }
+  S.vf = nvf; S.vs = nvs; S.yawV += (tyr - S.yawV) * Math.min(1, dt * 8); S.yaw += S.yawV * dt;
+  const sp = Math.hypot(S.vf, S.vs), mvT = sp > 0.3 ? 1 : Math.min(0.5, Math.abs(S.yawV) / 5 * 0.5);
+  t.mv += (mvT - t.mv) * Math.min(1, dt * 10); S.w += (sp * 3.9 + Math.abs(S.yawV) * 2.2) * dt; t.w = S.w;
+  t.vf = S.vf; t.vs = S.vs; t.yr = S.yawV; t.tn = Math.max(-1, Math.min(1, -S.yawV / 6)); t.hd = Math.max(-1.3, Math.min(1.3, -(tyr - S.yawV) * 0.12));
+  S.sw += ((S.vf / 2.6) - S.sw) * Math.min(1, dt * 6); S.sl += ((-S.vs / 2.6) - S.sl) * Math.min(1, dt * 6); t.sw = S.sw; t.sl = S.sl;
+  if (ph > 5.7 && ph < 5.8) { S.h = 1; t.hx = -1; t.hz = 0.3; } else S.h = Math.max(0, S.h - dt * 3.5);
+  S.a += ((ph > 7.7 && ph < 8.3 ? 1 : 0) - S.a) * Math.min(1, dt * 14); if (ph > 8.3 && ph < 8.4) S.s = 1; else S.s *= Math.exp(-dt * 5.2);
+  t.h = S.h; t.a = S.a; t.s = S.s; t.lk = Math.sin(tm * 0.6) * 0.4;
+  c.root.rotation.y = S.yaw;
+  const spd = Math.min(1, sp / 2.6);
+  c.model.rotation.set(t.tn * 0.15 * (0.3 + 0.7 * spd) + S.vs / 2.6 * 0.05 + t.hz * 0.15 * t.h, 0, -Math.max(-1, Math.min(1, t.af / 45)) * 0.06 - t.hx * 0.15 * t.h);
+  c.model.position.y = Math.abs(Math.sin(t.w)) * 0.03 * t.mv;
+}
+function frame(ms) {
+  const tm = still ? +(q.get('t') || 0.4) : ms / 1000, w = innerWidth, h = innerHeight, d = Math.min(2, devicePixelRatio || 1);
+  if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)) { renderer.setPixelRatio(d); renderer.setSize(w, h, false); }
+  const cw = w / cols, ch = h / rows, pr = pitch * Math.PI / 180, dist = (game ? 13 : 6.4) / zoom;
+  cam.aspect = cw / ch; cam.updateProjectionMatrix();
+  cam.position.set(0, 0.7 + Math.sin(pr) * dist, Math.cos(pr) * dist); cam.lookAt(0, 0.7, 0);
+  renderer.setScissorTest(true);
+  renderer.setClearColor('#26304c');
+  list.forEach((o, i) => {
+    const x = (i % cols) * cw, y = Math.floor(i / cols) * ch;
+    o.label.style.left = (x + 6) + 'px'; o.label.style.top = (y + 6) + 'px';
+    if (!o.c) return;
+    const t = o.pose;
+    if (poseName !== 'sim') { t.mv = poseName === 'move' ? 1 : 0; t.sw = poseName === 'move' ? 0.7 : 0; t.a = poseName === 'wind' || poseName === 'ult' ? 1 : 0; t.s = poseName === 'strike' ? 1 : 0; t.h = poseName === 'hurt' ? 1 : 0; t.u = poseName === 'ult' ? 1 : 0; }
+    if (poseName === 'move') t.vf = 2.6;
+    if (poseName === 'turn') { t.tn = 1; t.hd = 0.8; t.mv = 0.5; }
+    t.tm = tm; t.p = tm * 2.6; t.w = tm * 9; t.o = tm * 1.3; t.k = q.get('k') || (poseName === 'ult' ? 'slam' : 'melee'); t.gl = q.get('glow') ? 1 : 0;
+    if (poseName === 'sim') sim(o, tm);
+    for (const p of list) if (p.c) p.c.root.visible = p === o;
+    try { o.c.update(t); } catch (e) { if (!o.bad) { o.bad = 1; err.textContent += o.id + ' anim: ' + e.message + '\n'; } }
+    renderer.setViewport(x, h - y - ch, cw, ch); renderer.setScissor(x, h - y - ch, cw, ch);
+    renderer.render(scene, cam);
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

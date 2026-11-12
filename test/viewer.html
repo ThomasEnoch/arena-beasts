@@ -12,7 +12,7 @@
 </head>
 <body>
 <!-- Development tool. Shows one creature from 3 sides.
-     Options: ?id=kilnox  &pose=idle|move|wind|strike|hurt|cycle  &yaw=0 (extra turn, degrees)  &zoom=1  &still=1  &one=1 (one large view)  &pitch=18 -->
+     Options: ?id=kilnox  &pose=idle|move|wind|strike|hurt|ult|cycle (ult = the ultimate pose: u = 1, a = 1, k = slam or buff)  &yaw=0 (extra turn, degrees)  &zoom=1  &still=1  &one=1 (one large view)  &pitch=18 -->
 <canvas id="c"></canvas>
 <div id="info"></div>
 <script type="module">
@@ -58,8 +58,9 @@ function setPose(tm) {
   const ph = tm % 6;
   let name = poseName;
   if (name === 'cycle') name = ph < 1.5 ? 'idle' : ph < 3.2 ? 'move' : ph < 4 ? 'wind' : ph < 4.5 ? 'strike' : ph < 5 ? 'hurt' : 'idle';
-  const tg = { mv: 0, a: 0, s: 0, h: 0, sw: 0 };
-  if (name === 'move') { tg.mv = 1; tg.sw = 0.7; } else if (name === 'wind') tg.a = 1; else if (name === 'strike') tg.s = 1; else if (name === 'hurt') tg.h = 1;
+  const tg = { mv: 0, a: 0, s: 0, h: 0, sw: 0, u: 0 };
+  pose.vf = name === 'move' ? 2.6 : 0;
+  if (name === 'move') { tg.mv = 1; tg.sw = 0.7; } else if (name === 'wind') tg.a = 1; else if (name === 'strike') tg.s = 1; else if (name === 'hurt') tg.h = 1; else if (name === 'ult') { tg.u = 1; tg.a = 1; }
   const k = poseName === 'cycle' ? 0.2 : 1;
   for (const key in tg) pose[key] += (tg[key] - pose[key]) * k;
   pose.tm = tm; pose.p = tm * 2.6; pose.w = tm * 9; pose.o = tm * 1.3;

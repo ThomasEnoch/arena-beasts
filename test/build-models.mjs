@@ -13,7 +13,7 @@ for (const id of ids) {
     if (def.id !== id) throw new Error('def.id "' + def.id + '" does not match the file name');
     register(def);
     const t0 = performance.now(), bp = blueprint(id), ms = performance.now() - t0, c = new Creature(id), bb = bp.geo.boundingBox;
-    for (const k of ['melee', 'shot', 'slam', 'buff']) for (const key of ['mv', 'a', 's', 'h', 'gl']) {
+    for (const k of ['melee', 'shot', 'slam', 'buff']) for (const key of ['mv', 'a', 's', 'h', 'gl', 'u', 'tn', 'hd', 'vf', 'vs', 'af', 'hx', 'hz']) {
       const t = newPose(); t.k = k; t[key] = 1; t.sw = 0.7; t.sl = -0.4; t.tm = 1.3; t.p = 2.1; t.w = 4; t.o = 1; c.update(t);
       for (const b of c.boneList) if (!isFinite(b.position.x + b.rotation.x + b.scale.x + b.position.y + b.rotation.y + b.position.z + b.rotation.z)) throw new Error('NaN in bone ' + b.name + ' (pose ' + key + ', ' + k + ')');
     }

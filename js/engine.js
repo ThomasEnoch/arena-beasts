@@ -68,13 +68,13 @@
       dodgeCd: 0, iframes: 0, guardM: 100, guarding: false, guardT: 0, guardRegenT: 0, guardLock: false,
       ccImmune: 0, slowT: 0, slowF: 1, rootT: 0, zoneSlow: 1, zs: 1,
       bulwark: 0, cyclone: 0, cycTick: 0, veil: 0, veilHit: false, hidden: false, sp: null,
-      dashHit: false, dashV: 0, dvx: 0, dvy: 0, hitFlash: 0, moving: false, dealt: 0, taken: 0, kos: 0, healUses: 0
+      ultT: 0, bulHits: 0, dashHit: false, dashV: 0, dvx: 0, dvy: 0, hitFlash: 0, moving: false, dealt: 0, taken: 0, kos: 0, healUses: 0
     };
   }
   function resetVolatile(m) {
     for (var i = 0; i < 5; i++) m.stages[STATS[i]] = 0;
     m.conf = 0; m.bulwark = 0; m.cyclone = 0; m.veil = 0; m.veilHit = false; m.hidden = false; m.sp = null; m.cur = null;
-    m.guarding = false; m.slowT = 0; m.rootT = 0; m.kx = m.ky = m.vx = m.vy = 0; m.z = 0; m.iframes = 0; m.zoneSlow = m.zs = 1;
+    m.guarding = false; m.slowT = 0; m.rootT = 0; m.kx = m.ky = m.vx = m.vy = 0; m.z = 0; m.iframes = 0; m.zoneSlow = m.zs = 1; m.ultT = 0; m.bulHits = 0;
   }
   function mkSide(idx, ids, name) {
     return {
@@ -256,7 +256,7 @@
       var veilHit = src.veil > 0 && !src.veilHit;
       if (veilHit) dmg *= 1.6;
       dmg = applyGuard(b, tgt, dmg);
-      if (tgt.bulwark > 0) dmg *= 0.3;
+      if (tgt.bulwark > 0) { dmg *= 0.3; temper(b, tgt); }
       dealDamage(b, src, tgt, dmg, { eff: e, crit: crit, type: mv.type });
       if (veilHit) {
         src.veilHit = true; src.veil = 0.01;
@@ -300,7 +300,7 @@
     var e = G.eff(type, tgt.d.types), m = e === 0 ? 0.5 : Math.sqrt(e);
     var dmg = tgt.maxHp * pct * m;
     dmg = applyGuard(b, tgt, dmg);
-    if (tgt.bulwark > 0) dmg *= 0.3;
+    if (tgt.bulwark > 0) { dmg *= 0.3; temper(b, tgt); }
     dealDamage(b, src, tgt, dmg, { eff: e === 0 ? 0.5 : e, noCharge: true, type: type });
     return dmg;
   }
@@ -515,11 +515,361 @@
       end: function (b, side, f) { if (p.cost) stage(b, f, p.cost[0], p.cost[1]); f.state = 'rec'; f.st = f.stMax = 0.6; }
     });
   };
-  function bulwarkEnd(b, side, m, foe) {
-    b.ev.push({ k: 'burst', x: m.x, y: m.y, r: 150, type: m.d.sig.type });
-    b.ev.push({ k: 'shake', v: 8 });
-    if (present(foe) && dist(m, foe) <= 150 + foe.r) { if (sigHit(b, m, foe, 0.30, m.d.sig.type) > 0) knock(m, foe, 320); }
+  // ---- signature powers of the 20 Beasts (the stories are in LORE.md) -----------
+  // Each one sends 'ult' events: { k: 'ult', id, ph, side, x, y, ... }. The renderer has an effect sequence for each id and phase.
+  function ult(b, id, ph, m, o) {
+    var e = { k: 'ult', id: id, ph: ph, side: m.side, x: m.x, y: m.y }, k;
+    if (o) for (k in o) e[k] = o[k];
+    b.ev.push(e);
   }
+  function stunTxt(b, foe, t, txt) {
+    if (foe.fainted || foe.ccImmune > 0 || !setStun(foe, t)) return false;
+    b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: txt || 'Stunned!', col: '#fff27a' });
+    return true;
+  }
+  // Forgeshell: each blow that the anvil shell takes makes the last burst stronger.
+  function temper(b, m) {
+    if (m.d.sig.id !== 'masterwork') return;
+    m.bulHits = Math.min(6, (m.bulHits || 0) + 1);
+    ult(b, 'masterwork', 'temper', m, { n: m.bulHits });
+  }
+
+  // Glazefang: the shell breaks. A burst, 10 shards that fly to the walls, and molten glass on the floor.
+  var SHARD = { name: 'Porcelain Shard', type: 'Stone', cat: 'phys', power: 30, fx: [], shape: 'proj' };
+  SIG.shatter = function (b, side, m, foe) {
+    var i, a;
+    b.ev.push({ k: 'shake', v: 13 }); ult(b, 'shatter', 'hit', m, { r: 200 });
+    if (present(foe) && dist(m, foe) <= 200 + foe.r) { if (sigHit(b, m, foe, 0.25, 'Ember') > 0 && !foe.guarding) tryStatus(b, foe, 'burn'); }
+    for (i = 0; i < 10; i++) {
+      a = i / 10 * TAU + 0.31;
+      spawnProj(b, { x: m.x + Math.cos(a) * 60, y: m.y + Math.sin(a) * 60, vx: Math.cos(a) * 440, vy: Math.sin(a) * 440, r: 10, life: 1.3, side: side.idx, mv: SHARD, src: m, homing: 0, type: 'Stone' });
+    }
+    addZone(b, side.idx, { x: m.x, y: m.y, radius: 200, dur: 5, kind: 'lava', pct: 0.012, status: 'burn', statusCh: 0.4, type: 'Ember' });
+    stage(b, m, 'spe', -2);
+    m.st = 0.7; m.ultT = 5;
+  };
+
+  // Mantick: the bell stops time, then 2 cuts from 2 sides.
+  SIG.twelfth = function (b, side, m, foe) {
+    b.ev.push({ k: 'shake', v: 8 }); ult(b, 'twelfth', 'chime', m, { r: 210 });
+    if (present(foe) && dist(m, foe) <= 210 + foe.r) { if (sigHit(b, m, foe, 0.10, 'Iron') > 0) stunTxt(b, foe, 1.3, 'Time stopped!'); }
+    special(m, {
+      dur: 0.82, n: 0, untarget: true,
+      upd: function (b, side, f, foe) {
+        var s = f.sp, a, ox, oy, d;
+        if (s.n >= 2 || s.t < 0.22 + s.n * 0.3) return;
+        s.n++;
+        if (!present(foe) || dist(f, foe) > 380) return;
+        a = Math.atan2(foe.y - f.y, foe.x - f.x) + (s.n === 1 ? 0.5 : -0.5); d = foe.r + f.r + 30;
+        ox = f.x; oy = f.y;
+        f.x = clamp(foe.x + Math.cos(a) * d, AR.x0 + f.r, AR.x1 - f.r); f.y = clamp(foe.y + Math.sin(a) * d, AR.y0 + f.r, AR.y1 - f.r);
+        f.face = f.aimA = Math.atan2(foe.y - f.y, foe.x - f.x);
+        ult(b, 'twelfth', 'cut', f, { x2: ox, y2: oy, n: s.n });
+        sigHit(b, f, foe, 0.10, 'Iron');
+      },
+      end: function (b, side, f, foe) { if (present(foe)) knock(f, foe, 300); stage(b, f, 'spe', -1); f.state = 'rec'; f.st = f.stMax = 0.35; }
+    });
+  };
+
+  // Argantler: a wave of quicksilver crosses the arena, carries the opponent with it and sets into spikes.
+  SIG.chrometide = function (b, side, m) {
+    var a = m.aimA, ca = Math.cos(a), sa = Math.sin(a), zoned = false;
+    b.ev.push({ k: 'shake', v: 8 }); ult(b, 'chrometide', 'wave', m, { a: a, len: 610, dur: 0.85, v: 720 });
+    special(m, {
+      dur: 0.85, front: 0, hit: false,
+      upd: function (b, side, f, foe, dt) {
+        var s = f.sp, al, lat, d;
+        s.front += 720 * dt;
+        if (s.hit || !present(foe)) return;
+        al = (foe.x - f.x) * ca + (foe.y - f.y) * sa; lat = Math.abs(-(foe.x - f.x) * sa + (foe.y - f.y) * ca);
+        if (al < -foe.r || al > s.front + foe.r || al < s.front - 120 || lat > 100 + foe.r) return;
+        s.hit = true;
+        d = sigHit(b, f, foe, 0.30, 'Iron');
+        if (d < 0) return;
+        if (!foe.fainted && foe.bulwark <= 0) { foe.kx += ca * 520; foe.ky += sa * 520; }
+        zoned = true;
+        ult(b, 'chrometide', 'crash', foe);
+        addZone(b, side.idx, { x: foe.x + ca * 80, y: foe.y + sa * 80, radius: 140, dur: 5, kind: 'chrome', pct: 0.02, type: 'Iron' });
+      },
+      end: function (b, side, f) {
+        if (!zoned) addZone(b, side.idx, { x: f.x + ca * 420, y: f.y + sa * 420, radius: 140, dur: 5, kind: 'chrome', pct: 0.02, type: 'Iron' });
+        stage(b, f, 'def', -1); f.state = 'rec'; f.st = f.stMax = 0.3;
+      }
+    });
+  };
+
+  // Brasswail: 3 movements in one lane. Each is wider and stronger. Each one that hits heals Brasswail.
+  SIG.symphony = function (b, side, m) {
+    var a = m.aimA, W = [70, 115, 165], P = [0.08, 0.10, 0.15];
+    special(m, {
+      dur: 1.0, n: 0,
+      upd: function (b, side, f, foe) {
+        var s = f.sp, d;
+        if (s.n >= 3 || s.t < s.n * 0.36) return;
+        b.ev.push({ k: 'shake', v: 6 + s.n * 3 }); ult(b, 'symphony', 'pulse', f, { a: a, n: s.n, w: W[s.n], len: 700 });
+        d = present(foe) && inLine(f.x, f.y, a, 700, W[s.n], foe) ? sigHit(b, f, foe, P[s.n], 'Gale') : -1;
+        if (d > 0) { heal(b, f, f.maxHp * 0.03); if (s.n === 2 && !foe.fainted) { knock(f, foe, 420); confuse(b, foe, 3); } }
+        s.n++;
+      },
+      end: function (b, side, f) { f.state = 'rec'; f.st = f.stMax = 0.4; }
+    });
+  };
+
+  // Noonshell: the sky turns over. Opponent shots turn round. The opponent falls upward, then the ground comes back.
+  SIG.zenith = function (b, side, m, foe) {
+    var i, p;
+    for (i = 0; i < b.proj.length; i++) { p = b.proj[i]; if (p.side !== side.idx) { p.frozen = 0.8; p.flipTo = side.idx; p.flipSrc = m; } }
+    b.ev.push({ k: 'shake', v: 6 }); ult(b, 'zenith', 'invert', m, { r: 220 });
+    if (present(foe) && targetable(foe) && dist(m, foe) <= 220 + foe.r) {
+      if (foe.bulwark > 0 || foe.guarding || foe.state === 'special') { if (sigHit(b, m, foe, 0.24, 'Mind') > 0 && !foe.fainted) { foe.slowT = 2.5; foe.slowF = 0.5; } }
+      else {
+        ult(b, 'zenith', 'lift', foe);
+        special(foe, {
+          dur: 0.85, pulled: true,
+          upd: function (b, side, f) { var q = Math.min(1, f.sp.t / 0.85); f.z = Math.pow(Math.sin(q * PI), 0.6) * 130; },
+          end: function (b, side, f) {
+            f.z = 0;
+            b.ev.push({ k: 'shake', v: 12 }); ult(b, 'zenith', 'slam', f, { r: 120 });
+            if (sigHit(b, m, f, 0.28, 'Mind') > 0 && !f.fainted) { f.slowT = 2.5; f.slowF = 0.5; }
+          }
+        });
+      }
+    }
+    for (i = 0; i < 4; i++) m.cds[i] += 3;
+    m.st = 0.5;
+  };
+
+  // Coilbell: lightning falls 4 times where the opponent goes. The floor below Coilbell stays live.
+  function boltAt(b, si, m, foe, chain) {
+    var ok = present(foe) && foe.veil <= 0 && !foe.hidden;
+    var x = ok ? foe.x + foe.vx * 0.22 : m.aimX, y = ok ? foe.y + foe.vy * 0.22 : m.aimY;
+    b.pend.push({ k: 'blast', x: clamp(x, AR.x0, AR.x1), y: clamp(y, AR.y0, AR.y1), radius: 76, t: 0.44, T: 0.44, side: si, src: m, type: 'Volt', pct: 0.11, status: 'para', statusCh: 0.35, ult: 'brainstorm', chain: chain - 1 });
+  }
+  SIG.brainstorm = function (b, side, m, foe) {
+    b.ev.push({ k: 'shake', v: 8 }); ult(b, 'brainstorm', 'start', m, { r: 170 });
+    addZone(b, side.idx, { x: m.x, y: m.y, radius: 170, dur: 3.5, kind: 'volt', pct: 0.025, slow: 0.75, type: 'Volt' });
+    boltAt(b, side.idx, m, foe, 4);
+    selfDamage(b, m, m.maxHp * 0.08);
+    m.st = 0.4; m.ultT = 2;
+  };
+
+  // Pleatheron: a whirlwind of metal sheets for 5 seconds. It heals, pushes the opponent and stops shots.
+  SIG.thousandfolds = function (b, side, m, foe) {
+    m.cyclone = 5; m.cycTick = 0.5; m.status = null; m.conf = 0; m.st = 0.2;
+    ult(b, 'thousandfolds', 'open', m, { r: 150 });
+    if (present(foe) && dist(m, foe) <= 150 + foe.r) { if (sigHit(b, m, foe, 0.08, 'Gale') > 0) knock(m, foe, 260); }
+  };
+
+  // Basaltback: 5 blows on the ground. Each one reaches farther. The last one brings up the basalt.
+  SIG.faultline = function (b, side, m) {
+    var R = [110, 135, 160, 185, 210];
+    special(m, {
+      dur: 5 * 0.26 + 0.15, n: 0, acc: 0.26,
+      upd: function (b, side, f, foe, dt) {
+        var s = f.sp, r;
+        s.acc += dt;
+        if (s.acc < 0.26 || s.n >= 5) return;
+        s.acc = 0; r = R[s.n]; s.n++;
+        b.ev.push({ k: 'shake', v: 7 + s.n * 1.5 }); ult(b, 'faultline', 'pound', f, { r: r, n: s.n });
+        if (present(foe) && dist(f, foe) <= r + foe.r) { if (sigHit(b, f, foe, 0.068, 'Stone') > 0 && s.n === 5) knock(f, foe, 300); }
+        if (s.n === 5) addZone(b, side.idx, { x: f.x, y: f.y, radius: 210, dur: 3, kind: 'basalt', pct: 0.015, slow: 0.8, type: 'Stone' });
+      },
+      end: function (b, side, f) { stage(b, f, 'spe', -1); f.state = 'rec'; f.st = f.stMax = 0.6; }
+    });
+  };
+
+  // Gloomlure: all lights go out except the lantern. The opponent is pulled to the light.
+  SIG.lighthouse = function (b, side, m, foe) {
+    m.veil = 6; m.veilHit = false;
+    b.dark = { side: side.idx, t: 6 };
+    ult(b, 'lighthouse', 'dark', m);
+    if (present(foe) && foe.bulwark <= 0 && dist(m, foe) < 460) { knock(m, foe, -340); b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: 'Lured!', col: '#9fe8d8' }); }
+    stage(b, m, 'def', -2);
+    m.st = 0.2;
+  };
+
+  // Pangyre: a saw blade that cuts through the opponent 5 times. The last cut is the deepest.
+  SIG.sawblade = function (b, side, m) {
+    special(m, {
+      dur: 0.8, seg: -1, segT: 1, hit: false, sx: 0, sy: 0, tx: 0, ty: 0,
+      upd: function (b, side, f, foe, dt) {
+        var s = f.sp, a, d;
+        s.segT += dt;
+        if (s.segT >= 0.16) {
+          s.segT = 0; s.seg++; s.hit = false; s.sx = f.x; s.sy = f.y;
+          a = Math.atan2(foe.y - f.y, foe.x - f.x) + (s.seg === 0 ? 0 : (s.seg % 2 ? 0.12 : -0.12));
+          d = Math.min(420, dist(f, foe) + 110);
+          s.tx = clamp(f.x + Math.cos(a) * d, AR.x0 + f.r, AR.x1 - f.r); s.ty = clamp(f.y + Math.sin(a) * d, AR.y0 + f.r, AR.y1 - f.r);
+          f.face = a;
+          ult(b, 'sawblade', 'cut', f, { x2: s.tx, y2: s.ty, n: s.seg });
+        }
+        d = s.segT / 0.16;
+        f.x = s.sx + (s.tx - s.sx) * d; f.y = s.sy + (s.ty - s.sy) * d;
+        if (!s.hit && present(foe) && dist(f, foe) < f.r + foe.r + 16) { s.hit = true; sigHit(b, f, foe, s.seg >= 4 ? 0.11 : 0.075, 'Iron'); }
+      },
+      end: function (b, side, f) { f.slowT = 2.5; f.slowF = 0.5; f.state = 'rec'; f.st = f.stMax = 0.5; }
+    });
+  };
+
+  // Seamsting: it sews the floor. The opponent in the area is stitched in position, and the thread drains it.
+  SIG.tapestry = function (b, side, m, foe) {
+    var x = m.aimX, y = m.aimY;
+    b.ev.push({ k: 'shake', v: 6 }); ult(b, 'tapestry', 'stitch', m, { x2: x, y2: y, r: 170 });
+    addZone(b, side.idx, { x: x, y: y, radius: 170, dur: 6, kind: 'thread', pct: 0.02, slow: 0.5, healOwner: 0.012, type: 'Venom' });
+    if (present(foe) && distP(x, y, foe) <= 170 + foe.r) {
+      if (sigHit(b, m, foe, 0.14, 'Venom') > 0 && !foe.fainted && !foe.guarding && foe.bulwark <= 0) {
+        foe.rootT = Math.max(foe.rootT, 1.6);
+        b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: 'Stitched!', col: '#e8c8ff' });
+      }
+    }
+    stage(b, m, 'def', -1);
+    m.rootT = 0.6; m.st = 0.6;
+  };
+
+  // Spectrail: 7 colours go to one point. 3 hits: the last one is the white pillar.
+  SIG.spectrum = function (b, side, m) {
+    var x = m.aimX, y = m.aimY, P = [0.10, 0.10, 0.17], T = [0.2, 0.5, 0.85];
+    ult(b, 'spectrum', 'converge', m, { x2: x, y2: y, r: 120, dur: 0.9 });
+    special(m, {
+      dur: 0.95, n: 0,
+      upd: function (b, side, f, foe) {
+        var s = f.sp, d;
+        if (s.n >= 3 || s.t < T[s.n]) return;
+        b.ev.push({ k: 'shake', v: 5 + s.n * 4 }); ult(b, 'spectrum', 'tick', f, { x2: x, y2: y, r: 120, n: s.n });
+        d = present(foe) && distP(x, y, foe) <= 120 + foe.r ? sigHit(b, f, foe, P[s.n], 'Mind') : -1;
+        if (d > 0 && s.n === 2 && !foe.fainted && !foe.guarding) tryStatus(b, foe, 'burn');
+        s.n++;
+      },
+      end: function (b, side, f) { for (var i = 0; i < 4; i++) f.cds[i] += 2; f.state = 'rec'; f.st = f.stMax = 0.3; }
+    });
+  };
+
+  // Smolderasp: a poison haze and 2 serpents of smoke that hunt the opponent.
+  SIG.threeserpents = function (b, side, m, foe) {
+    var k, pa = present(foe) ? Math.atan2(foe.y - m.y, foe.x - m.x) : m.aimA;
+    b.ev.push({ k: 'shake', v: 7 }); ult(b, 'threeserpents', 'haze', m, { r: 200 });
+    if (present(foe) && dist(m, foe) <= 200 + foe.r) { if (sigHit(b, m, foe, 0.14, 'Venom') > 0 && !foe.fainted) confuse(b, foe, 2.5); }
+    addZone(b, side.idx, { x: m.x, y: m.y, radius: 200, dur: 5, kind: 'smoke', pct: 0.02, slow: 0.7, status: 'poison', statusCh: 0.5, type: 'Venom' });
+    for (k = -1; k <= 1; k += 2) {
+      spawnProj(b, {
+        x: m.x + Math.cos(pa + k * 1.57) * 34, y: m.y + Math.sin(pa + k * 1.57) * 34, vx: Math.cos(pa + k * 1.0) * 290, vy: Math.sin(pa + k * 1.0) * 290,
+        r: 16, life: 3, side: side.idx, mv: null, src: m, homing: 3.4, type: 'Venom', decoy: true, pct: 0.09, st: 'poison', stCh: 0.6, sprite: m.id
+      });
+    }
+    stage(b, m, 'def', -1);
+    m.iframes = 0.5; m.st = 0.5;
+  };
+
+  // Forgeshell: the anvil shell takes blows for 5 seconds (see temper), then gives them back.
+  SIG.masterwork = function (b, side, m) { m.bulwark = 5; m.bulHits = 0; m.st = 0.2; ult(b, 'masterwork', 'start', m); };
+  function bulwarkEnd(b, side, m, foe) {
+    var n = m.bulHits || 0, r = 150 + n * 10;
+    m.bulHits = 0;
+    b.ev.push({ k: 'shake', v: 9 + n });
+    ult(b, 'masterwork', 'quench', m, { r: r, n: n });
+    if (present(foe) && dist(m, foe) <= r + foe.r) { if (sigHit(b, m, foe, 0.24 + n * 0.025, m.d.sig.type) > 0) knock(m, foe, 320 + n * 30); }
+  }
+
+  // Lodetalon: 4 beams mark a point. It goes up out of reach and falls on that point.
+  SIG.truenorth = function (b, side, m) {
+    var sx = m.x, sy = m.y, tx = m.aimX, ty = m.aimY;
+    ult(b, 'truenorth', 'mark', m, { x2: tx, y2: ty, r: 110, dur: 0.8 });
+    special(m, {
+      dur: 0.8, untarget: true,
+      upd: function (b, side, f) {
+        var q = Math.min(1, f.sp.t / 0.8), e = q < 0.55 ? 0 : (q - 0.55) / 0.45;
+        e = e * e;
+        f.x = sx + (tx - sx) * e; f.y = sy + (ty - sy) * e;
+        f.z = q < 0.55 ? Math.sin(q / 0.55 * PI / 2) * 170 : 170 * (1 - e);
+      },
+      end: function (b, side, f, foe) {
+        f.z = 0; clampArena(f);
+        b.ev.push({ k: 'shake', v: 13 }); ult(b, 'truenorth', 'dive', f, { r: 110 });
+        if (present(foe) && dist(f, foe) <= 110 + foe.r) { if (sigHit(b, f, foe, 0.32, 'Volt') > 0) stunTxt(b, foe, 1.0); }
+        selfDamage(b, f, f.maxHp * 0.08);
+        f.state = 'rec'; f.st = f.stMax = 0.5;
+      }
+    });
+  };
+
+  // Atollem: a reef grows round the target and holds it. Atollem heals while the opponent stands in the reef.
+  SIG.atoll = function (b, side, m, foe) {
+    var x = m.aimX, y = m.aimY;
+    b.ev.push({ k: 'shake', v: 9 }); ult(b, 'atoll', 'reef', m, { x2: x, y2: y, r: 160 });
+    if (present(foe) && distP(x, y, foe) <= 160 + foe.r) {
+      if (sigHit(b, m, foe, 0.24, 'Bloom') > 0 && !foe.fainted && !foe.guarding && foe.bulwark <= 0) {
+        foe.rootT = Math.max(foe.rootT, 1.3);
+        b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: 'Held by the reef!', col: '#ffd0e6' });
+      }
+    }
+    addZone(b, side.idx, { x: x, y: y, radius: 160, dur: 6, kind: 'reef', pct: 0.022, slow: 0.6, healOwner: 0.012, type: 'Bloom' });
+    stage(b, m, 'spe', -1);
+    m.st = 0.8;
+  };
+
+  // Bellowcroak: the blast throws the opponent away and throws Bellowcroak the other way. Steam stays.
+  SIG.overpressure = function (b, side, m, foe) {
+    var d, dx, dy, l;
+    b.ev.push({ k: 'shake', v: 15 }); ult(b, 'overpressure', 'boom', m, { r: 220 });
+    d = present(foe) && dist(m, foe) <= 220 + foe.r ? sigHit(b, m, foe, 0.36, 'Gale') : -1;
+    if (d > 0 && !foe.fainted) { if (!foe.guarding) tryStatus(b, foe, 'burn'); knock(m, foe, 520); }
+    dx = m.x - foe.x; dy = m.y - foe.y; l = Math.sqrt(dx * dx + dy * dy) || 1;
+    m.kx += dx / l * 460; m.ky += dy / l * 460;
+    addZone(b, side.idx, { x: m.x, y: m.y, radius: 190, dur: 3, kind: 'steam', slow: 0.7, type: 'Gale' });
+    selfDamage(b, m, m.maxHp * 0.1);
+    m.st = 0.7;
+  };
+
+  // Shutterscale: the flash holds the opponent in the frame. One second later the plate develops and burns.
+  SIG.freezeframe = function (b, side, m, foe) {
+    var x = m.aimX, y = m.aimY, i;
+    b.ev.push({ k: 'shake', v: 6 }); ult(b, 'freezeframe', 'flash', m, { x2: x, y2: y, r: 150 });
+    if (present(foe) && distP(x, y, foe) <= 150 + foe.r) { if (sigHit(b, m, foe, 0.17, 'Mind') > 0) stunTxt(b, foe, 1.2, 'Caught in the frame!'); }
+    b.pend.push({ k: 'blast', x: x, y: y, radius: 150, t: 1.0, T: 1.0, side: side.idx, src: m, type: 'Mind', pct: 0.17, status: 'burn', statusCh: 1, ult: 'freezeframe', chain: 0 });
+    for (i = 0; i < 4; i++) m.cds[i] += 2;
+    m.st = 0.6;
+  };
+
+  // Chronovesp: it takes time from the opponent and gives it to itself.
+  SIG.stolenhour = function (b, side, m, foe) {
+    var i, got = false;
+    b.ev.push({ k: 'shake', v: 7 });
+    if (present(foe) && dist(m, foe) <= 200 + foe.r) {
+      if (sigHit(b, m, foe, 0.18, 'Shade') > 0 && !foe.fainted) {
+        got = true;
+        foe.slowT = 4; foe.slowF = 0.4;
+        for (i = 0; i < 4; i++) foe.cds[i] += 2.5;
+        b.ev.push({ k: 'text', x: foe.x, y: foe.y, txt: 'Time stolen!', col: '#f0a8ff' });
+      }
+    }
+    ult(b, 'stolenhour', 'steal', m, { r: 200, x2: foe.x, y2: foe.y, n: got ? 1 : 0 });
+    for (i = 0; i < 4; i++) m.cds[i] = 0;
+    m.dodgeCd = 0;
+    addZone(b, side.idx, { x: m.x, y: m.y, radius: 200, dur: 5, kind: 'gravity', pct: 0.015, slow: 0.5, type: 'Shade' });
+    stage(b, m, 'def', -1);
+    m.st = 0.4; m.ultT = 4;
+  };
+
+  // Lustrewing: 6 beams of fire and ice turn round it for 1.8 seconds.
+  SIG.lastwaltz = function (b, side, m) {
+    var a0 = m.aimA, W = 1.5, hits = 0;
+    ult(b, 'lastwaltz', 'spin', m, { a: a0, w: W, dur: 1.8, len: 250 });
+    special(m, {
+      dur: 1.8, cd: 0.15,
+      upd: function (b, side, f, foe, dt) {
+        var s = f.sp, k;
+        s.cd -= dt;
+        if (s.cd > 0 || !present(foe)) return;
+        for (k = 0; k < 6; k++) {
+          if (!inLine(f.x, f.y, a0 + s.t * W + k * PI / 3, 250, 34, foe)) continue;
+          s.cd = 0.42;
+          if (sigHit(b, f, foe, 0.095, k % 2 ? 'Frost' : 'Ember') > 0 && hits++ === 0 && !foe.fainted && !foe.guarding) tryStatus(b, foe, 'burn');
+          break;
+        }
+      },
+      end: function (b, side, f) { stage(b, f, 'spa', -2); f.state = 'rec'; f.st = f.stMax = 0.4; }
+    });
+  };
   function cycloneTick(b, side, m, foe, dt) {
     m.cyclone -= dt;
     if (m.hp < m.maxHp) m.hp = Math.min(m.maxHp, m.hp + m.maxHp * 0.04 * dt);
@@ -640,6 +990,7 @@
     if (m.iframes > 0) m.iframes -= dt;
     if (m.ccImmune > 0) m.ccImmune -= dt;
     if (m.slowT > 0) m.slowT -= dt;
+    if (m.ultT > 0) m.ultT -= dt;
     if (m.rootT > 0) m.rootT -= dt;
     if (m.hitFlash > 0) m.hitFlash -= dt;
     if (m.conf > 0) { m.conf -= dt; if (m.conf <= 0) { m.conf = 0; b.msg(m.d.name + ' snapped out of it!', '#ffffff'); b.ev.push({ k: 'text', x: m.x, y: m.y, txt: 'Snapped out of it!', col: '#ffffff' }); } }
@@ -794,9 +1145,10 @@
           p.side = 1 - p.side; p.vx = -p.vx; p.vy = -p.vy; p.src = foe; p.homing = 0; p.aiRoll = false;
           if (p.life < 1.2) p.life = 1.2;
           b.ev.push({ k: 'guard', x: foe.x, y: foe.y, perfect: true });
+          temper(b, foe);
           continue;
         }
-        if (p.decoy) { if (sigHit(b, p.src, foe, p.pct, p.type) > 0 && Math.random() < 0.3 && !foe.guarding) tryStatus(b, foe, 'para'); }
+        if (p.decoy) { if (sigHit(b, p.src, foe, p.pct, p.type) > 0 && Math.random() < (p.stCh || 0.3) && !foe.guarding) tryStatus(b, foe, p.st || 'para'); }
         else hit(b, p.src, foe, p.mv);
         b.ev.push({ k: 'pop', x: p.x, y: p.y, type: p.type, n: p.decoy ? 16 : 8 });
         P[i] = P[P.length - 1]; P.pop();
@@ -821,9 +1173,15 @@
       } else {
         p.t -= dt;
         if (p.t <= 0) {
-          b.ev.push({ k: 'burst', x: p.x, y: p.y, r: p.radius, type: p.type });
-          if (present(foe) && dist(p, foe) <= p.radius + foe.r * 0.5) hit(b, p.src, foe, p.mv);
+          if (p.ult) b.ev.push({ k: 'ult', id: p.ult, ph: 'strike', side: p.side, x: p.x, y: p.y, r: p.radius, n: p.chain || 0 });
+          else b.ev.push({ k: 'burst', x: p.x, y: p.y, r: p.radius, type: p.type });
+          if (present(foe) && dist(p, foe) <= p.radius + foe.r * 0.5) {
+            // a blast of a signature power does a share of maximum HP
+            if (p.pct) { if (sigHit(b, p.src, foe, p.pct, p.type) > 0 && p.status && !foe.guarding && Math.random() < (p.statusCh || 1)) tryStatus(b, foe, p.status); }
+            else hit(b, p.src, foe, p.mv);
+          }
           Q[i] = Q[Q.length - 1]; Q.pop();
+          if (p.chain > 0 && !p.src.fainted) boltAt(b, p.side, p.src, b.active(1 - p.side), p.chain);
         }
       }
     }

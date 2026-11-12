@@ -86,8 +86,8 @@
       M('Hearth Howl', 'Ember', 'spec', 76, 4.6, 420, 'cone', { range: 220, arc: 60, fx: [sg('foe', 'def', -1, 0.5)] }),
       M('Slag Trail', 'Ember', 'status', 0, 9, 300, 'zone', { range: 0, radius: 82, zone: { kind: 'lava', dur: 7, pct: 0.02, slow: 0.7, status: 'burn', statusCh: 0.4 } }),
       M('Kiln Temper', 'Stone', 'status', 0, 12, 400, 'self', { fx: [sg('self', 'def', 1), sg('self', 'atk', 1)] })
-    ], { id: 'caldera', name: 'Vesuvian Shatter', type: 'Ember', wind: 800, tele: { shape: 'nova', radius: 200 },
-      desc: 'The porcelain shell explodes in all directions. Molten glass stays on the floor for 5 seconds and burns.', cost: 'Speed falls 2 stages.' });
+    ], { id: 'shatter', name: 'Vesuvian Shatter', type: 'Ember', wind: 800, tele: { shape: 'nova', radius: 200 },
+      desc: 'The porcelain shell breaks, as on the night of the Kiln Breach. 10 shards fly to the walls. Molten glass burns on the floor for 5 seconds.', cost: 'Speed falls 2 stages.' });
 
   C('pendulummantis', 'Mantick', ['Iron', 'Mind'], 'M', 'Skirmisher', 'melee', 'aggressive', false, [82, 115, 78, 70, 75, 110],
     'A brass clockwork mantis with stained-glass wings. It strikes on a strict beat.', [
@@ -95,8 +95,8 @@
       M('Pendulum Swing', 'Iron', 'phys', 90, 4, 300, 'dash', { dist: 280, width: 40, kb: 220 }),
       M('Prism Refraction', 'Mind', 'status', 0, 12, 350, 'self', { fx: [sg('self', 'spd', 2)] }),
       M('Tick-Tock Feint', 'Mind', 'status', 0, 10, 300, 'nova', { radius: 125, fx: [conf(0.8), sg('foe', 'spe', -1)] })
-    ], { id: 'xnova', name: 'Grand Chime', type: 'Iron', wind: 700, tele: { shape: 'nova', radius: 210 }, p: { pct: 0.24, radius: 210, type: 'Iron', stun: 1.4, cost: ['spe', -1], st: 0.6 },
-      desc: 'The pendulum rings like a great bell. The shock wave stuns the opponent.', cost: 'Speed falls 1 stage.' });
+    ], { id: 'twelfth', name: 'The Twelfth Stroke', type: 'Iron', wind: 700, tele: { shape: 'nova', radius: 210 },
+      desc: 'Mantick rings midnight. The bell stops the opponent in time. Then Mantick cuts 2 times from 2 sides, and nothing can hit it.', cost: 'Speed falls 1 stage.' });
 
   C('mercurystag', 'Argantler', ['Iron', 'Tide'], 'L', 'Bruiser', 'mid', 'aggressive', false, [95, 100, 85, 80, 80, 80],
     'An obsidian stag. Its antlers are drops of liquid silver that change shape.', [
@@ -104,9 +104,8 @@
       M('Liquid Scatter', 'Iron', 'spec', 22, 3.4, 280, 'proj', { range: 420, speed: 420, pr: 8, count: 5, spread: 14, homing: 1.2 }),
       M('Mirror Puddle', 'Tide', 'status', 0, 11, 300, 'self', { fx: [sg('self', 'spe', 2)] }),
       M('Amalgam Shield', 'Iron', 'status', 0, 13, 400, 'self', { fx: [sg('self', 'def', 1), sg('self', 'spd', 1)] })
-    ], { id: 'xlob', name: 'Tides of Chrome', type: 'Iron', wind: 700, tele: { shape: 'lob', range: 420, radius: 150 },
-      p: { pct: 0.32, radius: 150, type: 'Iron', kb: 300, zone: { radius: 150, dur: 5, kind: 'spikes', pct: 0.02 }, cost: ['def', -1], st: 0.7 },
-      desc: 'Mercury spikes come out of the floor in a large circle. The spikes stay for 5 seconds.', cost: 'Defence falls 1 stage.' });
+    ], { id: 'chrometide', name: 'Tides of Chrome', type: 'Iron', wind: 700, tele: { shape: 'line', range: 610, width: 200 },
+      desc: 'All the quicksilver goes out as one wave across the arena. It carries the opponent with it and sets into spikes for 5 seconds.', cost: 'Defence falls 1 stage. Argantler cannot move during the wave.' });
 
   C('resonancewhale', 'Brasswail', ['Gale', 'Tide'], 'L', 'Support', 'long', 'careful', true, [120, 65, 95, 100, 100, 40],
     'A floating copper whale with organ pipes on its back. It fights with sound and steam.', [
@@ -114,9 +113,8 @@
       M('Steam Vent Burst', 'Tide', 'spec', 85, 5, 400, 'nova', { radius: 120, fx: [st('burn', 0.3)] }),
       M('Harmonic Tether', 'Gale', 'status', 0, 11, 500, 'ring', { radius: 200, speed: 300, fx: [sg('foe', 'spd', -1), sg('foe', 'spa', -1)] }),
       M('Acoustic Dampener', 'Tide', 'status', 0, 15, 500, 'self', { fx: [heal(0.24), cure] })
-    ], { id: 'xbeam', name: 'Symphony of the Deep', type: 'Gale', wind: 800, tele: { shape: 'line', range: 700, width: 90 },
-      p: { pct: 0.34, range: 700, width: 90, type: 'Gale', kb: 420, conf: 3, root: 1.2, st: 1.2 },
-      desc: 'All organ pipes fire one sonic beam across the arena. It pushes and confuses the opponent.', cost: 'Brasswail cannot move for 1.2 seconds.' });
+    ], { id: 'symphony', name: 'Symphony of the Deep', type: 'Gale', wind: 800, tele: { shape: 'line', range: 700, width: 165 },
+      desc: '3 movements in one lane: the Call, the Answer, the Homecoming. Each is wider and stronger. Each one that hits heals Brasswail. The last one pushes and confuses.', cost: 'Brasswail cannot move for 1.4 seconds.' });
 
   C('solarisscarab', 'Noonshell', ['Stone', 'Mind'], 'M', 'Tank', 'mid', 'defensive', false, [100, 90, 112, 75, 88, 45],
     'A golden sundial beetle. Its quartz dome holds sand that does not obey gravity.', [
@@ -124,8 +122,8 @@
       M('Glass Laser', 'Mind', 'spec', 90, 5.5, 520, 'line', { range: 480, width: 22, fx: [st('burn', 0.25)] }),
       M('Quicksand Sinkhole', 'Stone', 'status', 0, 11, 380, 'zone', { range: 320, radius: 90, zone: { kind: 'gravity', dur: 6, pct: 0.012, slow: 0.45 } }),
       M('Sundial Ward', 'Mind', 'status', 0, 13, 400, 'self', { fx: [sg('self', 'def', 1), sg('self', 'spd', 1)] })
-    ], { id: 'zerofield', name: 'Hourglass Inversion', type: 'Mind', wind: 700, tele: { shape: 'nova', radius: 220 },
-      desc: 'Gravity turns over. Opponent shots stop in the air and go back. The opponent becomes slow.', cost: 'All move cooldowns increase by 3 seconds.' });
+    ], { id: 'zenith', name: 'Zenith Inversion', type: 'Mind', wind: 700, tele: { shape: 'nova', radius: 220 },
+      desc: 'The sky turns over, as at the Noon Eclipse. The opponent falls upward, then the ground comes back. Opponent shots turn round.', cost: 'All move cooldowns increase by 3 seconds.' });
 
   C('teslajelly', 'Coilbell', ['Volt', 'Tide'], 'S', 'Skirmisher', 'mid', 'tricky', true, [70, 60, 68, 115, 85, 115],
     'A glass bell with a glowing filament and copper-wire arms. It is fast and hard to hit.', [
@@ -133,9 +131,8 @@
       M('Arc Discharge', 'Volt', 'spec', 80, 2.8, 300, 'proj', { range: 450, speed: 380, pr: 11, homing: 1.8, fx: [st('para', 0.2)] }),
       M('Static Levitation', 'Volt', 'status', 0, 9, 300, 'nova', { radius: 130, fx: [st('para', 0.7), sg('foe', 'spe', -1)] }),
       M('Faraday Cage', 'Volt', 'status', 0, 13, 400, 'self', { fx: [sg('self', 'def', 1), sg('self', 'spd', 1)] })
-    ], { id: 'xnova', name: 'High-Voltage Storm', type: 'Volt', wind: 700, tele: { shape: 'nova', radius: 230 },
-      p: { pct: 0.22, radius: 230, type: 'Volt', status: 'para', zone: { radius: 230, dur: 3.5, kind: 'volt', pct: 0.03, slow: 0.75 }, recoil: 0.08, st: 0.5 },
-      desc: 'The copper wires go into the floor. The floor around Coilbell stays electric for 3.5 seconds.', cost: 'Recoil: 8% of maximum HP.' });
+    ], { id: 'brainstorm', name: 'Brainstorm', type: 'Volt', wind: 600, tele: { shape: 'nova', radius: 170 },
+      desc: 'All ideas at the same time. Lightning falls 4 times where the opponent goes. The floor below Coilbell stays live for 3.5 seconds.', cost: 'Recoil: 8% of maximum HP.' });
 
   C('origamicrane', 'Pleatheron', ['Gale', 'Iron'], 'M', 'Skirmisher', 'mid', 'tricky', true, [75, 100, 75, 80, 75, 108],
     'A heron folded from titanium sheets. Its edges cut like paper.', [
@@ -143,8 +140,8 @@
       M('Thousand-Fold Barrage', 'Iron', 'spec', 20, 2.8, 260, 'proj', { range: 460, speed: 460, pr: 7, count: 5, spread: 12, homing: 1.8 }),
       M('Unfold Parry', 'Iron', 'status', 0, 12, 300, 'self', { fx: [sg('self', 'spe', 1), sg('self', 'def', 1)] }),
       M('Silk Snare', 'Gale', 'status', 0, 10, 350, 'line', { range: 300, width: 30, fx: [rooted(1.5), sg('foe', 'spe', -1)] })
-    ], { id: 'cyclone', name: 'Crucible of Folds', type: 'Gale', wind: 600, tele: { shape: 'nova', radius: 150 },
-      desc: 'Pleatheron becomes a tornado of metal sheets for 5 seconds. It heals, pushes the opponent, and stops shots.', cost: 'Sp. Atk falls 2 stages at the end.' });
+    ], { id: 'thousandfolds', name: 'Storm of a Thousand Folds', type: 'Gale', wind: 600, tele: { shape: 'nova', radius: 150 },
+      desc: 'Pleatheron opens all its folds. For 5 seconds it is a whirlwind of sheets: it heals, pushes the opponent and stops shots.', cost: 'Sp. Atk falls 2 stages at the end.' });
 
   C('basaltgorilla', 'Basaltback', ['Stone', 'Brawl'], 'L', 'Bruiser', 'melee', 'aggressive', false, [115, 120, 100, 45, 70, 62],
     'An ape of basalt columns and steel pistons. Each hit shakes the arena.', [
@@ -152,9 +149,8 @@
       M('Tectonic Grapple', 'Brawl', 'phys', 95, 4.5, 300, 'cone', { range: 95, arc: 80, kb: 260, fx: [stun(0.6, 0.5)] }),
       M('Pressure Vent', 'Brawl', 'status', 0, 12, 350, 'self', { fx: [sg('self', 'atk', 1), sg('self', 'spe', 1)] }),
       M('Monolith Hurl', 'Stone', 'phys', 90, 5, 450, 'lob', { range: 360, radius: 70, delay: 0.55 })
-    ], { id: 'xpound', name: 'Magma Core Overdrive', type: 'Stone', wind: 600, tele: { shape: 'nova', radius: 150 },
-      p: { pct: 0.085, n: 5, gap: 0.26, radius: 150, type: 'Stone', kb: 280, cost: ['spe', -1] },
-      desc: 'The pistons glow white. Basaltback hits the ground 5 times.', cost: 'Speed falls 1 stage.' });
+    ], { id: 'faultline', name: 'Faultline Overdrive', type: 'Stone', wind: 600, tele: { shape: 'nova', radius: 210 },
+      desc: '5 blows on the ground, like the 5 horn signals of the quarry. Each blow reaches farther. The last one brings up the basalt for 3 seconds.', cost: 'Speed falls 1 stage.' });
 
   C('lanternangler', 'Gloomlure', ['Shade', 'Tide'], 'M', 'Trapper', 'mid', 'tricky', true, [112, 110, 98, 95, 95, 80],
     'A wrought-iron anglerfish. A ghost flame burns in the lantern on its lure.', [
@@ -162,8 +158,8 @@
       M('Wisp Detonation', 'Shade', 'spec', 92, 4, 400, 'lob', { range: 340, radius: 88, delay: 0.7, fx: [st('burn', 0.3)] }),
       M('Lure Hypnosis', 'Tide', 'spec', 62, 5, 350, 'cone', { range: 260, arc: 60, kb: -220, fx: [conf(0.5), sg('foe', 'spd', -1, 0.5)] }),
       M('Abyssal Fade', 'Tide', 'status', 0, 11, 300, 'self', { fx: [sg('self', 'spe', 1), sg('self', 'def', 1), heal(0.12)] })
-    ], { id: 'nightfall', name: 'Lighthouse of the Lost', type: 'Shade', wind: 600, tele: { shape: 'self' },
-      desc: 'The lantern goes dark and the arena with it for 6 seconds. Gloomlure is almost invisible and its next hit is much stronger.', cost: 'Defence falls 2 stages.' });
+    ], { id: 'lighthouse', name: 'Lighthouse of the Lost', type: 'Shade', wind: 600, tele: { shape: 'self' },
+      desc: 'All lights go out except the lantern, for 6 seconds. The opponent is pulled to the light. Gloomlure is almost invisible and its next hit is much stronger.', cost: 'Defence falls 2 stages.' });
 
   C('gyropangolin', 'Pangyre', ['Iron', 'Brawl'], 'S', 'Skirmisher', 'melee', 'aggressive', false, [75, 105, 105, 50, 70, 105],
     'A bronze pangolin with a gyroscope in its body. It rolls like a wheel.', [
@@ -171,8 +167,8 @@
       M('Scale Shrapnel', 'Iron', 'phys', 75, 3.4, 300, 'nova', { radius: 120 }),
       M('Tunnel Bore', 'Brawl', 'phys', 85, 5, 380, 'lob', { range: 300, radius: 65, delay: 0.5 }),
       M('Gyro-Counter', 'Iron', 'status', 0, 12, 350, 'self', { fx: [sg('self', 'def', 1), sg('self', 'atk', 1)] })
-    ], { id: 'relay', name: 'Juggernaut Sawblade', type: 'Iron', wind: 600, tele: { shape: 'line', range: 420, width: 44 },
-      desc: 'Pangyre becomes a burning saw blade and cuts through the opponent 5 times.', cost: 'Pangyre is slow for 2.5 seconds after the last cut.' });
+    ], { id: 'sawblade', name: 'Juggernaut Sawblade', type: 'Iron', wind: 600, tele: { shape: 'line', range: 420, width: 44 },
+      desc: 'The gyroscope spins past the red mark. Pangyre becomes a saw blade and cuts through the opponent 5 times. The last cut is the deepest.', cost: 'Pangyre is dizzy and slow for 2.5 seconds.' });
 
   C('needlescorpion', 'Seamsting', ['Venom', 'Iron'], 'M', 'Trapper', 'melee', 'tricky', false, [85, 115, 90, 70, 80, 100],
     'An ivory scorpion with scissor claws. Its tail is a golden needle with glowing thread.', [
@@ -180,8 +176,8 @@
       M('Thread Stitch', 'Venom', 'phys', 84, 4, 300, 'line', { range: 300, width: 22, kb: -170, fx: [rooted(1.2, 0.6)] }),
       M('Bobbin Dash', 'Venom', 'status', 0, 8, 250, 'zone', { range: 0, radius: 72, zone: { kind: 'vines', dur: 8, pct: 0.02, slow: 0.6 } }),
       M('Thimble Guard', 'Iron', 'status', 0, 13, 400, 'self', { fx: [sg('self', 'def', 2)] })
-    ], { id: 'overgrowth', name: 'Grand Tapestry', type: 'Venom', wind: 700, tele: { shape: 'lob', range: 600, radius: 170 },
-      desc: 'A web of glowing thread covers a large area for 6 seconds. It slows and drains the opponent.', cost: 'Defence falls 1 stage. Brief root.' });
+    ], { id: 'tapestry', name: 'Grand Tapestry', type: 'Venom', wind: 700, tele: { shape: 'lob', range: 600, radius: 170 },
+      desc: 'Seamsting sews the floor into its design. An opponent in the area is stitched in position. For 6 seconds the thread slows it and drains it to Seamsting.', cost: 'Defence falls 1 stage. Brief root.' });
 
   C('prismpeacock', 'Spectrail', ['Mind', 'Frost'], 'M', 'Artillery', 'long', 'careful', false, [75, 55, 75, 125, 100, 85],
     'A silver peacock with 15 floating glass feathers that change colour.', [
@@ -189,9 +185,8 @@
       M('Mirage Plume', 'Frost', 'spec', 88, 4.4, 420, 'lob', { range: 340, radius: 75, delay: 0.8, fx: [conf(0.4), st('chill', 0.3)] }),
       M('Laser Pirouette', 'Mind', 'spec', 88, 4.5, 450, 'nova', { radius: 140 }),
       M('Glamour Veil', 'Frost', 'status', 0, 13, 400, 'self', { fx: [sg('self', 'spa', 1), sg('self', 'spe', 1)] })
-    ], { id: 'xlob', name: 'Solar Prism Convergence', type: 'Mind', wind: 800, tele: { shape: 'lob', range: 600, radius: 120 },
-      p: { pct: 0.36, radius: 120, type: 'Mind', status: 'burn', cds: 2, st: 0.6 },
-      desc: 'All 15 feathers focus the light into one rainbow pillar from above.', cost: 'All move cooldowns increase by 2 seconds.' });
+    ], { id: 'spectrum', name: 'Spectrum Convergence', type: 'Mind', wind: 700, tele: { shape: 'lob', range: 600, radius: 120 },
+      desc: '7 feathers send 7 colours to one point. The light hits 3 times. The cracked feather sends the last beam: a white pillar that burns.', cost: 'Spectrail cannot move during the beams. All move cooldowns increase by 2 seconds.' });
 
   C('censerserpent', 'Smolderasp', ['Venom', 'Mind'], 'M', 'Trapper', 'mid', 'tricky', false, [100, 95, 85, 100, 95, 65],
     'A jade cobra with a bronze incense hood. Its smoke hides it and poisons.', [
@@ -199,9 +194,8 @@
       M('Incense Cloud', 'Venom', 'status', 0, 10, 380, 'zone', { range: 320, radius: 85, zone: { kind: 'smoke', dur: 9, pct: 0.028, slow: 0.7, status: 'poison', statusCh: 0.4 } }),
       M('Chain Constriction', 'Mind', 'phys', 95, 4, 300, 'cone', { range: 95, arc: 90, kb: 220, fx: [rooted(1, 0.5)] }),
       M('Smoke Teleport', 'Mind', 'status', 0, 15, 450, 'self', { fx: [heal(0.2), cure, sg('self', 'spe', 1)] })
-    ], { id: 'xnova', name: 'Nirvana Haze', type: 'Venom', wind: 700, tele: { shape: 'nova', radius: 220 },
-      p: { pct: 0.2, radius: 220, type: 'Venom', conf: 3, zone: { radius: 220, dur: 6, kind: 'smoke', pct: 0.02, slow: 0.7, status: 'poison', statusCh: 0.5 }, cost: ['def', -1], st: 0.6 },
-      desc: 'Purple and gold mist covers the floor for 6 seconds. It confuses, slows and poisons.', cost: 'Defence falls 1 stage.' });
+    ], { id: 'threeserpents', name: 'Haze of Three Serpents', type: 'Venom', wind: 700, tele: { shape: 'nova', radius: 200 },
+      desc: 'A poison haze covers the floor for 5 seconds and confuses. 2 serpents of smoke come out of it and hunt the opponent.', cost: 'Defence falls 1 stage.' });
 
   C('anviltortoise', 'Forgeshell', ['Iron', 'Ember'], 'L', 'Tank', 'melee', 'defensive', false, [120, 95, 130, 55, 85, 35],
     'A cast-iron snapping turtle. Its shell is a hot anvil and its tail is a hammer.', [
@@ -209,8 +203,8 @@
       M('Hammer Tail Slam', 'Iron', 'phys', 80, 4, 340, 'cone', { range: 110, arc: 140, kb: 320 }),
       M('Forge Spark Shower', 'Ember', 'spec', 30, 3.5, 320, 'proj', { range: 400, speed: 430, pr: 8, count: 3, spread: 10, fx: [st('burn', 0.15)] }),
       M('Ironclad Bunker', 'Iron', 'status', 0, 13, 450, 'self', { fx: [sg('self', 'def', 2)] })
-    ], { id: 'bulwark', name: 'Masterwork Cataclysm', type: 'Iron', wind: 600, tele: { shape: 'self' },
-      desc: 'The anvil shell glows white for 5 seconds. It reflects shots, then releases a shock burst of molten iron.', cost: 'Forgeshell cannot move during this time.' });
+    ], { id: 'masterwork', name: 'Masterwork Cataclysm', type: 'Iron', wind: 600, tele: { shape: 'self' },
+      desc: 'For 5 seconds the anvil shell takes each blow and reflects shots. Each blow heats the shell. Then it gives all of them back in a burst of molten iron.', cost: 'Forgeshell cannot move during this time.' });
 
   C('compasshawk', 'Lodetalon', ['Gale', 'Volt'], 'S', 'Skirmisher', 'mid', 'aggressive', true, [65, 95, 65, 95, 75, 125],
     'A falcon of astrolabe rings with compass-needle wings and a lodestone heart.', [
@@ -218,9 +212,8 @@
       M('Needle Volley', 'Volt', 'spec', 26, 2.2, 220, 'proj', { range: 440, speed: 520, pr: 7, count: 3, spread: 14, homing: 2 }),
       M('Magnetic Polarity', 'Volt', 'spec', 60, 5, 320, 'nova', { radius: 130, kb: 340, fx: [st('para', 0.25)] }),
       M('Astrolabe Hover', 'Gale', 'status', 0, 12, 350, 'self', { fx: [sg('self', 'spe', 1), sg('self', 'spa', 1)] })
-    ], { id: 'xlob', name: 'Celestial Alignment', type: 'Volt', wind: 700, tele: { shape: 'lob', range: 600, radius: 110 },
-      p: { pct: 0.34, radius: 110, type: 'Volt', stun: 1.0, recoil: 0.08, st: 0.5 },
-      desc: 'Four beams of starlight come down and cross on the target.', cost: 'Recoil: 8% of maximum HP.' });
+    ], { id: 'truenorth', name: 'True North Descent', type: 'Volt', wind: 600, tele: { shape: 'lob', range: 600, radius: 110 },
+      desc: '4 beams from the 4 directions mark one point. Lodetalon goes up out of reach and falls on that point. The hit stuns.', cost: 'Recoil: 8% of maximum HP.' });
 
   C('coralgolem', 'Atollem', ['Bloom', 'Tide'], 'L', 'Tank', 'mid', 'defensive', false, [115, 85, 100, 80, 92, 35],
     'A guardian grown from white coral. A glowing pearl floats in its hollow chest.', [
@@ -228,9 +221,8 @@
       M('Pearl Beam', 'Tide', 'spec', 95, 6.5, 600, 'line', { range: 520, width: 28 }),
       M('Brine Wave', 'Tide', 'spec', 70, 5, 380, 'nova', { radius: 140, fx: [sg('foe', 'spe', -1)] }),
       M('Calcify Regen', 'Bloom', 'status', 0, 15, 500, 'self', { fx: [heal(0.25), sg('self', 'def', 1)] })
-    ], { id: 'xlob', name: 'Abyssal Atoll', type: 'Bloom', wind: 800, tele: { shape: 'lob', range: 380, radius: 160 },
-      p: { pct: 0.3, radius: 160, type: 'Bloom', zone: { radius: 160, dur: 6, kind: 'spikes', pct: 0.025, slow: 0.6 }, cost: ['spe', -1], st: 0.8 },
-      desc: 'A reef grows around the target and breaks. Sharp coral stays on the floor for 6 seconds.', cost: 'Speed falls 1 stage.' });
+    ], { id: 'atoll', name: 'Living Atoll', type: 'Bloom', wind: 800, tele: { shape: 'lob', range: 380, radius: 160 },
+      desc: 'A reef grows round the target in seconds and holds it. The reef stays for 6 seconds. Atollem heals while the opponent stands in it.', cost: 'Speed falls 1 stage.' });
 
   C('bellowsfrog', 'Bellowcroak', ['Gale', 'Ember'], 'M', 'Trapper', 'mid', 'tricky', false, [95, 85, 90, 90, 85, 65],
     'A copper boiler toad with an accordion throat. It moves with steam pressure.', [
@@ -238,9 +230,8 @@
       M('Bellows Blast', 'Gale', 'spec', 80, 4, 380, 'cone', { range: 240, arc: 60, kb: 340 }),
       M('Boiler Slam', 'Ember', 'phys', 85, 4.8, 380, 'nova', { radius: 110, fx: [st('burn', 0.3)] }),
       M('Pressure Bounce', 'Ember', 'status', 0, 11, 300, 'self', { fx: [sg('self', 'spe', 2)] })
-    ], { id: 'xnova', name: 'Overpressure Detonation', type: 'Gale', wind: 900, tele: { shape: 'nova', radius: 220 },
-      p: { pct: 0.36, radius: 220, type: 'Gale', kb: 520, status: 'burn', recoil: 0.1, st: 0.7 },
-      desc: 'All valves close. Bellowcroak grows, then explodes in steam and sound.', cost: 'Recoil: 10% of maximum HP.' });
+    ], { id: 'overpressure', name: 'Overpressure Detonation', type: 'Gale', wind: 900, tele: { shape: 'nova', radius: 220 },
+      desc: 'All valves close. Bellowcroak swells and lets go. The blast throws the opponent across the arena and throws Bellowcroak the other way. Steam stays for 3 seconds.', cost: 'Recoil: 10% of maximum HP.' });
 
   C('lenschameleon', 'Shutterscale', ['Mind', 'Shade'], 'S', 'Artillery', 'long', 'tricky', false, [70, 70, 70, 120, 90, 95],
     'A brass chameleon of lens barrels. Its aperture eyes flash like a camera.', [
@@ -248,9 +239,8 @@
       M('Zoom Snipe', 'Mind', 'spec', 105, 6, 650, 'line', { range: 600, width: 20 }),
       M('Film-Reel Whip', 'Shade', 'phys', 65, 3, 240, 'cone', { range: 105, arc: 120, fx: [sg('foe', 'spe', -1)] }),
       M('Optical Camouflage', 'Shade', 'status', 0, 12, 350, 'self', { fx: [sg('self', 'spe', 1), sg('self', 'spa', 1)] })
-    ], { id: 'xlob', name: 'Exposure Overburn', type: 'Mind', wind: 800, tele: { shape: 'lob', range: 500, radius: 150 },
-      p: { pct: 0.3, radius: 150, type: 'Mind', status: 'burn', conf: 3, zone: { radius: 150, dur: 4, kind: 'lava', pct: 0.015 }, cds: 2, st: 0.6 },
-      desc: 'A viewfinder frame shows on the floor. Focused light burns all of that area for 4 seconds.', cost: 'All move cooldowns increase by 2 seconds.' });
+    ], { id: 'freezeframe', name: 'Freeze Frame', type: 'Mind', wind: 800, tele: { shape: 'lob', range: 500, radius: 150 },
+      desc: 'The flash catches the opponent in the frame and holds it there. One second later the plate develops, and the same area burns.', cost: 'All move cooldowns increase by 2 seconds.' });
 
   C('hourglasswasp', 'Chronovesp', ['Venom', 'Shade'], 'S', 'Skirmisher', 'mid', 'aggressive', true, [72, 110, 68, 80, 70, 120],
     'A brass wasp. Its abdomen is an hourglass full of glowing void sand.', [
@@ -258,9 +248,8 @@
       M('Chrono-Dart', 'Shade', 'phys', 28, 2.0, 200, 'proj', { range: 420, speed: 540, pr: 7, count: 3, spread: 9, homing: 1.5, fx: [slow(2, 0.65, 0.5)] }),
       M('Sand-Siphon', 'Venom', 'phys', 76, 4, 240, 'line', { range: 145, width: 26, fx: [drain(0.5), sap(20)] }),
       M('Evasive Buzz', 'Shade', 'status', 0, 11, 300, 'self', { fx: [sg('self', 'spe', 2)] })
-    ], { id: 'xnova', name: 'Sands of Entropy', type: 'Shade', wind: 700, tele: { shape: 'nova', radius: 200 },
-      p: { pct: 0.2, radius: 200, type: 'Shade', slow: [4, 0.4], zone: { radius: 200, dur: 5, kind: 'gravity', pct: 0.015, slow: 0.5 }, cost: ['def', -1], st: 0.5 },
-      desc: 'The hourglass breaks. Void sand makes a field that keeps the opponent in slow motion for 5 seconds.', cost: 'Defence falls 1 stage.' });
+    ], { id: 'stolenhour', name: 'Stolen Hour', type: 'Shade', wind: 600, tele: { shape: 'nova', radius: 200 },
+      desc: 'Chronovesp turns the glass over. The opponent goes into slow motion and its cooldowns become longer. All cooldowns of Chronovesp are ready immediately.', cost: 'Defence falls 1 stage.' });
 
   C('chandeliermoth', 'Lustrewing', ['Ember', 'Frost'], 'M', 'Artillery', 'long', 'careful', true, [86, 55, 80, 120, 100, 85],
     'A wrought-iron moth. Crystal drops hang from its wings and candles burn on its antennas.', [
@@ -268,9 +257,12 @@
       M('Wax-Flame Orb', 'Ember', 'spec', 80, 2.8, 300, 'proj', { range: 450, speed: 360, pr: 11, homing: 2, fx: [st('burn', 0.3)] }),
       M('Chandelier Drop', 'Frost', 'phys', 90, 5, 420, 'lob', { range: 300, radius: 80, delay: 0.5 }),
       M('Dazzling Dust', 'Frost', 'status', 0, 10, 350, 'nova', { radius: 135, fx: [conf(0.6), sg('foe', 'atk', -1)] })
-    ], { id: 'xnova', name: 'Grand Ballroom Inferno', type: 'Ember', wind: 800, tele: { shape: 'nova', radius: 240 },
-      p: { pct: 0.34, radius: 240, type: 'Ember', status: 'burn', conf: 2, cost: ['spa', -2], st: 0.7 },
-      desc: 'All crystals light at the same time. Beams of fire go out in all directions.', cost: 'Sp. Atk falls 2 stages.' });
+    ], { id: 'lastwaltz', name: 'The Last Waltz', type: 'Ember', wind: 800, tele: { shape: 'nova', radius: 250 },
+      desc: '6 beams of fire and ice go out like the arms of a chandelier and turn round Lustrewing for 1.8 seconds. The opponent must move with them or burn.', cost: 'Sp. Atk falls 2 stages. Lustrewing cannot move during the waltz.' });
+
+  // the title of each Beast in the story (LORE.md)
+  var EPITHET = { kilnhound: 'The Kiln Door Hound', pendulummantis: 'The Striker of the Hours', mercurystag: 'The Fountain Stag', resonancewhale: 'The Fog Organ', solarisscarab: 'The Courtyard Sundial', teslajelly: 'The First Lamp', origamicrane: 'The Thousandth Crane', basaltgorilla: 'The Quarry Engine', lanternangler: 'The Last Light of Blackwater', gyropangolin: 'The One That Gets Up', needlescorpion: 'The Banner Tailor', prismpeacock: 'The Proof of Light', censerserpent: 'The Keeper of the Still Room', anviltortoise: 'The Anvil of Anvil Hall', compasshawk: 'The Way Home', coralgolem: 'The Sea Wall', bellowsfrog: 'The Boiler That Held', lenschameleon: 'The Honest Witness', hourglasswasp: 'The Stolen Hour', chandeliermoth: 'The Light of the Ballroom' };
+  G.ROSTER.forEach(function (id) { G.DEX[id].epithet = EPITHET[id] || ''; });
 
   G.TRAINER_NAMES = ['Rook', 'Vesper', 'Tamsin', 'Okoro', 'Juno', 'Balt', 'Mirelle', 'Dax', 'Senna', 'Quill'];
 })(typeof window !== 'undefined' ? window : globalThis);
