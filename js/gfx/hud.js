@@ -190,6 +190,7 @@ function bottomBar(b, ui) {
     ctx.fillStyle = C.brassDim; ctx.fillRect(bt.x + 43, bt.y + 29, 66 * t.charge / 100, 1);
     ctx.globalAlpha = 1;
     if (!act && !t.fainted && side.switchCd > 0) { ctx.fillStyle = 'rgba(10,18,32,0.6)'; ctx.fillRect(bt.x + 1, bt.y + 1, (bt.w - 2) * Math.min(1, side.switchCd / 8), bt.h - 2); }
+    if (ui.pick === i && !act) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; rr(bt.x + 1, bt.y + 1, bt.w - 2, bt.h - 2); ctx.stroke(); }   // selected with the scroll wheel
     keycap(SWKEY[i], bt.x + bt.w - 6, bt.y + 4);
   }
   // dodge, guard, auto

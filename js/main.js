@@ -6,7 +6,7 @@
   function $(id) { return document.getElementById(id); }
   var cv = $('cv'), menu = $('menu'), result = $('result');
   var battle = null, state = 'menu', mode = 'solo', picks = [], diff = 'normal', lastTeams = null, rival = 'Rival';
-  var ui = { me: 0, auto: false, paused: false, mx: 480, my: 270, note: '' };
+  var ui = { me: 0, auto: false, paused: false, mx: 480, my: 270, note: '', pick: -1 };
   var keys = {}, guardBtn = false, acc = 0, last = 0, STEP = 1 / 60, endT = 0, detailId = null, menuT = 0;
   var myName = 'Player', peerName = 'Player', myReady = false, peerReady = false, peerTeam = null;
   var outEv = [], stepN = 0, snapN = 0, inT = 0, pingT = 0, ping = -1, hiddenLast = 0;
@@ -396,7 +396,7 @@
     ui.me = mode === 'guest' ? 1 : 0;
     if (mode === 'solo') { battle.sides[1].isAI = true; battle.sides[1].ai = G.makeAI(diff); }
     if (mode === 'guest') { battle.ev.length = 0; Sync.reset(); }
-    ui.auto = false; ui.paused = false; ui.note = ''; guardBtn = false; keys = {};
+    ui.auto = false; ui.paused = false; ui.note = ''; ui.pick = -1; guardBtn = false; keys = {};
     outEv = []; stepN = 0; snapN = 0; inT = 0; pingT = 1.5; hiddenLast = 0;
     away = false; waitLeft = WAIT; notice = '';
     Net.reserved = mode === 'host' ? Net.peerId : '';
@@ -486,6 +486,31 @@
   });
   window.addEventListener('mouseup', function () { guardBtn = false; });
   cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  // The scroll wheel changes the creature: down = the next creature of the team, up = the creature before.
+  // Fainted creatures are skipped. Each notch moves the selection one creature (the HUD shows it: ui.pick).
+  // The switch occurs when the wheel stops, so that 2 or 3 notches go 2 or 3 creatures along the team.
+  var wheelT = 0, wheelTimer = 0;
+  function wheelCommit() {
+    var p = ui.pick;
+    ui.pick = -1;
+    if (state === 'battle' && battle && !battle.over && p >= 0 && p !== battle.sides[ui.me].active) act('sw', p);
+  }
+  window.addEventListener('wheel', function (e) {
+    if (state !== 'battle' || !battle || battle.over) return;
+    e.preventDefault();
+    if (ui.paused || ui.auto || Math.abs(e.deltaY) < 1) return;
+    var now = performance.now(), sd = battle.sides[ui.me], n = sd.team.length, dir = e.deltaY > 0 ? 1 : -1, from, i, k;
+    if (now - wheelT < 70) return;                        // one step for each notch of the wheel
+    wheelT = now;
+    from = ui.pick >= 0 ? ui.pick : sd.active;
+    for (k = 1; k <= n; k++) {
+      i = ((from + dir * k) % n + n) % n;
+      if (!sd.team[i].fainted) { ui.pick = i; break; }
+    }
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(wheelCommit, 190);
+    G.sfx('ui');
+  }, { passive: false });
 
   function readMove(o) {
     o.mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
