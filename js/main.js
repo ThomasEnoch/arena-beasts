@@ -181,6 +181,22 @@
       if (Math.abs(e.deltaY) >= 1) bind(e.deltaY > 0 ? 'WheelDown' : 'WheelUp');
     }, { capture: true, passive: false });
   }
+  // ---- graphics quality: buttons in the Controls panel, and a notice when the browser draws on the CPU ----
+  function drawGfx() {
+    var g = R.gfx(), bs = document.querySelectorAll('#gfx button'), i;
+    for (i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].dataset.g === g.mode);
+    $('gfxnote').textContent = (g.mode === 'auto' ? 'Auto: the game selects the quality and lowers it when frames are slow. Now: ' + g.level + '.' : 'Fixed at ' + g.level + '.') +
+      (g.soft ? ' This browser has no graphics card support.' : '');
+  }
+  function initGfxPanel() {
+    var bs = document.querySelectorAll('#gfx button'), i, hide = false;
+    for (i = 0; i < bs.length; i++) bs[i].onclick = function () { R.setGfx(this.dataset.g); detailId = null; showDetail(G.ROSTER[0]); drawGfx(); G.sfx('ui'); };
+    $('help').addEventListener('toggle', drawGfx);
+    drawGfx();
+    try { hide = sessionStorage.getItem('ab_gpuok') === '1'; } catch (e) { /* storage is optional */ }
+    if (R.gfx().soft && !hide) $('gpuwarn').classList.remove('hidden');
+    $('gpuok').onclick = function () { $('gpuwarn').classList.add('hidden'); try { sessionStorage.setItem('ab_gpuok', '1'); } catch (e) { /* storage is optional */ } };
+  }
   function refresh() {
     var cards = document.querySelectorAll('.card'), i, id, n;
     for (i = 0; i < cards.length; i++) {
@@ -408,6 +424,7 @@
     $('clear').onclick = function () { picks = []; G.sfx('ui'); teamChanged(); };
     $('sbtn').onclick = function () { G.sfx('ui'); toggleStory(); };
     initKeyPanel();
+    initGfxPanel();
     window.addEventListener('keydown', function (e) { if (e.code === 'Escape' && storyOpen && state === 'menu') toggleStory(false); });
     loadLore();
     $('start').onclick = function () {

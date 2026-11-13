@@ -1,8 +1,8 @@
 /* Arena Beasts - 3D start-up. Builds the creature models, makes the portraits, gives the game its renderer (G.R),
    then loads main.js. The classic scripts (data, engine, ai, audio, net) are loaded before this module. */
 import * as THREE from 'three';
-import { makeRenderer, setEnv, lightRig } from './stage.js';
-import { Creature, newPose, blueprint, hasDef, register } from './rig.js';
+import { makeRenderer, setEnv, lightRig, GFX, LEVELS, gfxLevel } from './stage.js';
+import { Creature, newPose, blueprint, hasDef, register, FINISH } from './rig.js';
 import { HUD } from './hud.js';
 import { World } from './world.js';
 
@@ -12,6 +12,14 @@ Object.defineProperty(R, 'hitstop', { get: () => World.hitstop, set: v => { Worl
 R.init = cv => { HUD.init(cv); World.init(document.getElementById('gl')); window.addEventListener('resize', R.resize); };
 R.resize = () => { HUD.resize(); World.resize(); };
 R.toLogical = HUD.toLogical; R.toArena = World.toArena; R.hitButton = HUD.hitButton;
+// graphics quality for the menu: { mode, level name, soft (no graphics card support), gpu }
+R.gfx = () => ({ mode: GFX.mode, level: LEVELS[GFX.level].name, soft: GFX.soft, gpu: GFX.gpu });
+R.setGfx = mode => {
+  World.setGfx(mode);
+  // the menu preview uses the same clear coat setting: build its creatures again
+  for (const k in pv.cre) { pv.scene.remove(pv.cre[k].root); pv.cre[k].dispose(); delete pv.cre[k]; }
+  pv.cur = null; pv.w = 0;
+};
 R.buildArena = () => {};
 R.reset = (seed) => { R.theme = World.reset(seed); };
 R.banner = HUD.banner; R.consume = World.consume; R.draw = World.draw;
@@ -19,7 +27,8 @@ R.banner = HUD.banner; R.consume = World.consume; R.draw = World.draw;
 // ---- small second renderer: portraits and the live menu preview ----------------------------
 const pv = { canvas: document.getElementById('stagecv') || document.createElement('canvas'), cre: {}, size: 0, pose: newPose(), t: 0, cur: null };
 function initPreview() {
-  pv.r = makeRenderer(pv.canvas, { alpha: true, exposure: 1.05 });
+  FINISH.on = gfxLevel().coat;
+  pv.r = makeRenderer(pv.canvas, { alpha: true, exposure: 1.05, shadows: !GFX.soft });
   pv.r.setClearColor(0x000000, 0); pv.r.setPixelRatio(1);
   pv.scene = new THREE.Scene(); setEnv(pv.r, pv.scene);
   lightRig(pv.scene, { keyK: 2.7, hemiK: 0.9, area: 4, map: 1024 });
@@ -84,7 +93,7 @@ function portrait(id) {
 R.preview = function (id, dt) {
   if (!hasDef(id)) return;
   // the box on the screen: it includes the CSS zoom of the menu on a large window
-  const bx = pv.canvas.getBoundingClientRect(), dp = Math.min(2, window.devicePixelRatio || 1), w = Math.min(2400, Math.round(bx.width * dp)), h = Math.min(2000, Math.round(bx.height * dp));
+  const bx = pv.canvas.getBoundingClientRect(), dp = Math.min(2, window.devicePixelRatio || 1) * (GFX.level === 0 ? 0.6 : 1), w = Math.min(2400, Math.round(bx.width * dp)), h = Math.min(2000, Math.round(bx.height * dp));
   if (w < 8 || h < 8) return;
   const c = pvCreature(id), t = pv.pose;
   if (pv.cur !== id) { pv.cur = id; pv.t = 0; t.mv = t.a = t.s = t.h = 0; }

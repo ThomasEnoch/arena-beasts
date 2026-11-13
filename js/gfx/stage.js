@@ -6,8 +6,41 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+// ---- graphics quality --------------------------------------------------------------
+// Level 2 = High, 1 = Medium, 0 = Low. GFX.scale makes the picture smaller again when the frame rate is still low.
+// Some browsers draw WebGL on the CPU (no graphics card support, or graphics acceleration is off). The full picture then
+// gets only a few frames each second. Such a browser starts at Low, and the menu shows a notice (GFX.soft).
+// mode: 'auto' (the game selects the level and lowers it when frames are slow) or 'high' / 'medium' / 'low' (fixed by the player).
+export const LEVELS = [
+  { name: 'Low', pr: 0.6, samples: 0, post: false, shadows: false, coat: false },
+  { name: 'Medium', pr: 1, samples: 0, post: true, shadows: true, coat: true },
+  { name: 'High', pr: 1.75, samples: 4, post: true, shadows: true, coat: true }
+];
+export const GFX = { level: 2, scale: 1, soft: false, gpu: '', mode: 'auto' };
+const SOFT = /basic render|swiftshader|llvmpipe|softpipe|software/i;
+export function gfxLevel() { return LEVELS[GFX.level]; }
+export function gfxMode(mode) {
+  GFX.mode = /^(auto|high|medium|low)$/.test(mode) ? mode : 'auto';
+  GFX.level = GFX.mode === 'high' ? 2 : GFX.mode === 'medium' ? 1 : GFX.mode === 'low' ? 0 : GFX.soft ? 0 : 2;
+  GFX.scale = 1;
+}
+if (typeof document !== 'undefined') {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
+    const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    GFX.gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+    GFX.soft = SOFT.test(GFX.gpu);
+    const lose = gl && gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+  } catch (e) { /* the level stays High */ }
+  let saved = 'auto';
+  try { saved = localStorage.getItem('ab_gfx') || 'auto'; } catch (e) { /* storage is optional */ }
+  gfxMode(saved);
+}
+
 export function makeRenderer(canvas, o = {}) {
-  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: !!o.alpha, powerPreference: 'high-performance' });
+  // edge smoothing of the screen buffer: only at High. At High the composer smooths the picture; at Low it would cost too much.
+  const r = new THREE.WebGLRenderer({ canvas, antialias: GFX.level === 2, alpha: !!o.alpha, powerPreference: 'high-performance' });
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.toneMapping = THREE.ACESFilmicToneMapping;
   r.toneMappingExposure = o.exposure || 1.0;

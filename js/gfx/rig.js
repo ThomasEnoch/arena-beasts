@@ -54,9 +54,9 @@ function patch(sh, uni) {
    map, emap, op (opacity), add (additive), basic (no lights), env, coat (clear coat 0..1), coatRough.
    Finish: each solid surface has a clear coat, as lacquer on a model figure. It gives a sharp highlight and a reflection
    on top of the base colour, so that no surface looks flat or unfinished. Glass, flames and glow parts have no coat. */
-export const FINISH = { coat: 0.85, coatRough: 0.14, skinRough: 0.8, skinEnv: 0.6, env: 0.62 };
+export const FINISH = { on: true, coat: 0.85, coatRough: 0.14, skinRough: 0.8, skinEnv: 0.6, env: 0.62 };
 export function fxMat(d, uni) {
-  const coated = !d.basic && !d.add && d.op === undefined && !d.noOut && d.coat !== 0;
+  const coated = FINISH.on && !d.basic && !d.add && d.op === undefined && !d.noOut && d.coat !== 0;   // FINISH.on is false at Low graphics
   const m = d.basic ? new THREE.MeshBasicMaterial() : coated ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
   m.color.set(d.col || '#ffffff');
   if (!d.basic) {

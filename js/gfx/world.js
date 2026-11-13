@@ -1,8 +1,8 @@
 /* Arena Beasts - world: draws one battle in 3D. It reads the battle state each frame and moves creatures, effects and the camera.
    The battle logic stays in engine.js. Positions there are game pixels (960 x 540); fx.js changes them to world units. */
 import * as THREE from 'three';
-import { makeRenderer, setEnv, lightRig, makeComposer } from './stage.js';
-import { Creature, newPose } from './rig.js';
+import { makeRenderer, setEnv, lightRig, makeComposer, GFX, LEVELS, gfxLevel, gfxMode } from './stage.js';
+import { Creature, newPose, FINISH } from './rig.js';
 import { FX, S, wx, wz, lin, glowTexture } from './fx.js';
 import { Arena, THEMES } from './arena.js';
 import { HUD } from './hud.js';
@@ -104,6 +104,7 @@ let spikes, rain, rainPos;
 // ---- setup ----------------------------------------------------------------------
 World.init = function (canvas) {
   glCanvas = canvas;
+  FINISH.on = gfxLevel().coat;
   renderer = World.renderer = makeRenderer(canvas);
   scene = new THREE.Scene(); scene.background = new THREE.Color('#0f0d0b'); scene.fog = new THREE.Fog('#0f0d0b', 34, 70);
   setEnv(renderer, scene);
@@ -124,11 +125,11 @@ World.init = function (canvas) {
     g.add(core, sp); g.visible = false; g.userData = { core, sp }; core.castShadow = true; scene.add(g); lobs.push(g);
   }
   World.resize();
-  comp = makeComposer(renderer, scene, camera).comp;
+  World.applyGfx();
   World.setTheme(0);
 };
 World.resize = function () {
-  const w = glCanvas.clientWidth || window.innerWidth, h = glCanvas.clientHeight || window.innerHeight, pr = Math.min(1.75, window.devicePixelRatio || 1), asp = w / h;
+  const w = glCanvas.clientWidth || window.innerWidth, h = glCanvas.clientHeight || window.innerHeight, pr = Math.min(gfxLevel().pr, window.devicePixelRatio || 1) * GFX.scale, asp = w / h;
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
   camera.aspect = asp;
   camera.fov = fov0 = asp >= 16 / 9 ? BASE_FOV : 2 * Math.atan(Math.tan(BASE_FOV * PI / 360) * (16 / 9) / asp) * 180 / PI;
@@ -149,6 +150,64 @@ World.setTheme = function (i) {
   return th.name;
 };
 // seed >= 0: a fixed arena (online play). Other values: a random arena.
+// ---- graphics quality (the levels are in stage.js) ------------------------------------------
+// Put the current level to work: render size, bloom pass, shadows, clear coat of new creatures.
+let gAcc = 0, gN = 0, gLast = 0, gWait = 0, gTold = false, gPrev = 0, gUndo = null, gLock = false;
+World.applyGfx = function () {
+  const L = gfxLevel();
+  if (comp) { comp.dispose(); comp = null; }
+  if (L.post) comp = makeComposer(renderer, scene, camera, { samples: L.samples }).comp;
+  lights.key.castShadow = L.shadows;
+  if (FINISH.on !== L.coat) {
+    // the clear coat is part of the material: build the creatures again with the next battle
+    FINISH.on = L.coat;
+    for (const sl of slots) { for (const [, c] of sl.cache) { scene.remove(c.root); c.dispose(); } sl.cache.clear(); sl.mon = null; sl.c = null; }
+    for (const d of decoys) { scene.remove(d.root); d.dispose(); }
+    decoys.length = 0; warmB = null;
+  }
+  World.resize();
+  gAcc = gN = 0; gWait = 1.2;
+};
+// The player selects a mode in the Controls panel: 'auto', 'high', 'medium' or 'low'.
+World.setGfx = function (mode) {
+  gfxMode(mode);
+  gUndo = null; gLock = false;
+  try { localStorage.setItem('ab_gfx', GFX.mode); } catch (e) { /* storage is optional */ }
+  World.applyGfx();
+};
+// Auto mode: when the frames are slow, go one step down. High -> Medium -> smaller picture -> Low -> smaller picture.
+function lowerGfx() {
+  const before = { level: GFX.level, scale: GFX.scale };
+  if (GFX.level === 2) { GFX.level = 1; GFX.scale = 1; }
+  else if (GFX.level === 1 && GFX.scale > 0.75) GFX.scale = 0.75;
+  else if (GFX.level === 1) { GFX.level = 0; GFX.scale = 1; }
+  else if (GFX.scale > 0.5) GFX.scale = Math.max(0.5, GFX.scale - 0.2);
+  else { gLock = true; return; }
+  gUndo = before;
+  World.applyGfx();
+  if (!gTold) { gTold = true; HUD.msg('Graphics quality lowered to keep the game smooth', '#cbd8ee'); }
+}
+// Measure the real time between frames. Below about 33 frames each second for 1.5 seconds: lower the quality.
+// If a step down does not make the frames faster, the picture is not the limit (for example a 30 Hz display):
+// undo that step and stop.
+function governGfx(dt) {
+  const now = performance.now(), d = now - gLast;
+  gLast = now;
+  if (dt <= 0 || d > 1000) return;            // pause, hitstop, or the tab was hidden
+  if (gWait > 0) { gWait -= d / 1000; return; }   // new shaders compile after a change
+  gAcc += d; gN++;
+  if (gAcc < 1500 || gN < 3) return;
+  const avg = gAcc / gN;
+  gAcc = gN = 0;
+  if (GFX.mode !== 'auto' || gLock) return;
+  if (gUndo && avg > gPrev * 0.93) {
+    GFX.level = gUndo.level; GFX.scale = gUndo.scale; gUndo = null; gLock = true;
+    World.applyGfx();
+    return;
+  }
+  gUndo = null;
+  if (avg > 30) { gPrev = avg; lowerGfx(); }
+}
 World.reset = function (seed) {
   fx.clear(); ults.clear(); shake = 0; World.hitstop = 0; darkK = 1; cine = 0;
   for (const sl of slots) { if (sl.c) sl.c.root.visible = false; sl.mon = null; sl.c = null; hideAux(sl); }
@@ -622,6 +681,7 @@ World.draw = function (b, alpha, dt, ui) {
   placeCamera(0, 0);
   HUD.draw(b, ui, dt, proj, bars);
   placeCamera(sx, sy);
-  comp.render();
+  if (comp) comp.render(); else renderer.render(scene, camera);
+  governGfx(dt);
 };
 World.scene = () => scene;
