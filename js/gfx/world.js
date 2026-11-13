@@ -172,7 +172,7 @@ World.applyGfx = function () {
 World.setGfx = function (mode) {
   gfxMode(mode);
   gUndo = null; gLock = false;
-  try { localStorage.setItem('ab_gfx', GFX.mode); } catch (e) { /* storage is optional */ }
+  G.SET.set('gfx', GFX.mode);
   World.applyGfx();
 };
 // Auto mode: when the frames are slow, go one step down. High -> Medium -> smaller picture -> Low -> smaller picture.
@@ -677,6 +677,7 @@ World.draw = function (b, alpha, dt, ui) {
   renderer.toneMappingExposure = 0.62 + 0.38 * darkK;
   fx.end(); fx.update(dt);
   let sx = 0, sy = 0;
+  if (shake > 0.2 && !G.SET.get('shake')) shake = 0;   // the player switched the screen shake off
   if (shake > 0.2) { sx = (Math.random() - 0.5) * shake * S * 1.3; sy = (Math.random() - 0.5) * shake * S * 1.3; shake *= Math.exp(-9 * dt); } else shake = 0;
   placeCamera(0, 0);
   HUD.draw(b, ui, dt, proj, bars);

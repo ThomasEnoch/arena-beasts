@@ -52,6 +52,19 @@ Builds each creature model without a browser. It needs `npm i three@0.160.0 --no
 - `test/viewer.html?id=<id>`: one model from 3 sides.
 - `test/gallery.html`: all models in a grid. `?pose=sim` shows them in motion.
 
+## Screens and settings
+
+| File | Contents |
+|---|---|
+| `js/settings.js` | `G.SET`: the one store for all settings of the player (name, difficulty, volume, mute, screen shake, graphics, keys). |
+| `js/ui.js` | `G.UI`: the title screen, the Settings screen (4 tabs) and the pause menu. It also changes between the screens. |
+| `js/main.js` | The Beast screen (views: solo, online, beasts), the online lobby, the battle flow, the input and the loop. |
+
+- To add a setting: add its default value and its check in `js/settings.js`. Then add a row to a tab in `index.html` and connect it in `js/ui.js`.
+- To add a Settings tab: add a button to `#stabs` and a section with the id `tab-<name>` in `index.html`.
+- To add a screen: add its element to `index.html` and show it in `UI.go` in `js/ui.js`.
+- The Beast grid shows 4 rows of 5. With more than 20 Beasts, the grid scrolls.
+
 ## Documents
 
 - `LORE.md`: the world and the story of each Beast. The source of truth for models, moves and texts.

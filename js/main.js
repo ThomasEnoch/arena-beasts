@@ -1,11 +1,13 @@
-/* Arena Beasts - menus, input, online lobby, and the fixed-step game loop.
-   Battle modes: 'solo' (AI opponent), 'host' (runs the battle for 2 players), 'guest' (shows the host's battle). */
+/* Arena Beasts - the Beast screen, the online lobby, the battle flow, the input and the fixed-step game loop.
+   Battle modes: 'solo' (AI opponent), 'host' (runs the battle for 2 players), 'guest' (shows the host's battle).
+   The title screen, the Settings screen and the pause menu are in js/ui.js. The settings are in js/settings.js.
+   The Beast screen (#menu) has 3 views (G.UI.view): 'solo' and 'online' select a team, 'beasts' only shows the Beasts. */
 (function () {
   'use strict';
-  var G = window.G, R = G.R, Net = G.Net, Sync = G.NetSync;
+  var G = window.G, R = G.R, Net = G.Net, Sync = G.NetSync, UI = G.UI, SET = G.SET;
   function $(id) { return document.getElementById(id); }
   var cv = $('cv'), menu = $('menu'), result = $('result');
-  var battle = null, state = 'menu', mode = 'solo', picks = [], diff = 'normal', lastTeams = null, rival = 'Rival';
+  var battle = null, state = 'menu', mode = 'solo', picks = [], diff = SET.get('diff'), lastTeams = null, rival = 'Rival';
   var ui = { me: 0, auto: false, paused: false, mx: 480, my: 270, note: '', pick: -1 };
   var keys = {}, guardBtn = false, acc = 0, last = 0, STEP = 1 / 60, endT = 0, detailId = null, menuT = 0;
   var myName = 'Player', peerName = 'Player', myReady = false, peerReady = false, peerTeam = null;
@@ -122,85 +124,10 @@
     $('sbtn').classList.toggle('on', storyOpen);
     if (storyOpen) renderStory(detailId);
   }
-  // ---- Controls panel: the player changes the input of each action -------------
-  var capture = null, skipClick = false, HOLD = { up: 1, down: 1, left: 1, right: 1, guard: 1 };
-  function escHtml(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function drawKeys() {
-    var html = '', grp = '';
-    G.KEYS.ACTIONS.forEach(function (a) {
-      var m = G.KEYS.get(a[0]);
-      if (a[2] !== grp) { html += (grp ? '</section>' : '') + '<section><h4>' + a[2] + '</h4>'; grp = a[2]; }
-      html += '<div class="krow"><span>' + a[1] + '</span>' + [0, 1].map(function (sl) {
-        return '<button type="button" class="kbtn' + (m[sl] ? '' : ' none') + '" data-a="' + a[0] + '" data-s="' + sl + '" aria-label="' + a[1] + ', key ' + (sl + 1) + '">' + escHtml(G.KEYS.label(m[sl])) + '</button>';
-      }).join('') + '</div>';
-    });
-    $('keys').innerHTML = html + '</section>';
-  }
-  function keyHint(t, warn) { $('khint').textContent = t || 'Click a key to change it. Each action has 2 keys.'; $('khint').classList.toggle('warn', !!warn); }
-  function endCapture(msg, warn) { capture = null; drawKeys(); keyHint(msg, warn); }
-  function bind(code) {
-    var c = capture, lost;
-    if (!c) return;
-    if (HOLD[c.id] && code.indexOf('Wheel') === 0) { keyHint('The wheel cannot hold an action. Use a key or a mouse button for "' + G.KEYS.name(c.id) + '".', true); return; }
-    lost = G.KEYS.set(c.id, c.slot, code);
-    endCapture(lost ? G.KEYS.label(code) + ' was the key of "' + G.KEYS.name(lost) + '". It is now the key of "' + G.KEYS.name(c.id) + '".' : '', !!lost);
-    G.sfx('ui');
-  }
-  function initKeyPanel() {
-    drawKeys(); keyHint('');
-    $('keys').addEventListener('click', function (e) {
-      var el = e.target.closest ? e.target.closest('.kbtn') : null;
-      if (skipClick) { skipClick = false; return; }
-      if (!el) return;
-      capture = { id: el.dataset.a, slot: +el.dataset.s };
-      drawKeys();
-      el = $('keys').querySelector('.kbtn[data-a="' + capture.id + '"][data-s="' + capture.slot + '"]');
-      el.classList.add('wait'); el.textContent = 'Press…'; capture.el = el;
-      keyHint('Press a key, turn the wheel, or click the yellow box with a mouse button. Esc = cancel. Delete = no key.');
-    });
-    $('keys').addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    $('kreset').onclick = function () { G.KEYS.reset(); endCapture('All keys are the default keys again.'); G.sfx('ui'); };
-    $('help').addEventListener('toggle', function () { if (!$('help').open && capture) endCapture(''); });
-    // while the panel waits for an input, these listeners take it before all others
-    window.addEventListener('keydown', function (e) {
-      if (!capture) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      var k = G.KEYS.norm(e.code);
-      if (k === 'Escape') endCapture('');
-      else if (k === 'Delete' || k === 'Backspace') { G.KEYS.set(capture.id, capture.slot, ''); endCapture('"' + G.KEYS.name(capture.id) + '": key ' + (capture.slot + 1) + ' is empty.'); }
-      else if (k && k !== 'Unidentified') bind(k);
-    }, true);
-    window.addEventListener('mousedown', function (e) {
-      if (!capture) return;
-      if (e.target === capture.el) { e.preventDefault(); e.stopImmediatePropagation(); skipClick = e.button === 0; bind('Mouse' + e.button); }
-      else if (!(e.target.closest && e.target.closest('.kbtn'))) endCapture('');
-    }, true);
-    window.addEventListener('wheel', function (e) {
-      if (!capture) return;
-      e.preventDefault(); e.stopImmediatePropagation();
-      if (Math.abs(e.deltaY) >= 1) bind(e.deltaY > 0 ? 'WheelDown' : 'WheelUp');
-    }, { capture: true, passive: false });
-  }
-  // ---- graphics quality: buttons in the Controls panel, and a notice when the browser draws on the CPU ----
-  function drawGfx() {
-    var g = R.gfx(), bs = document.querySelectorAll('#gfx button'), i;
-    for (i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].dataset.g === g.mode);
-    $('gfxnote').textContent = (g.mode === 'auto' ? 'Auto: the game selects the quality and lowers it when frames are slow. Now: ' + g.level + '.' : 'Fixed at ' + g.level + '.') +
-      (g.soft ? ' This browser has no graphics card support.' : '');
-  }
-  function initGfxPanel() {
-    var bs = document.querySelectorAll('#gfx button'), i, hide = false;
-    for (i = 0; i < bs.length; i++) bs[i].onclick = function () { R.setGfx(this.dataset.g); detailId = null; showDetail(G.ROSTER[0]); drawGfx(); G.sfx('ui'); };
-    $('help').addEventListener('toggle', drawGfx);
-    drawGfx();
-    try { hide = sessionStorage.getItem('ab_gpuok') === '1'; } catch (e) { /* storage is optional */ }
-    if (R.gfx().soft && !hide) $('gpuwarn').classList.remove('hidden');
-    $('gpuok').onclick = function () { $('gpuwarn').classList.add('hidden'); try { sessionStorage.setItem('ab_gpuok', '1'); } catch (e) { /* storage is optional */ } };
-  }
   function refresh() {
     var cards = document.querySelectorAll('.card'), i, id, n;
     for (i = 0; i < cards.length; i++) {
-      id = cards[i].dataset.id; n = picks.indexOf(id);
+      id = cards[i].dataset.id; n = UI.view === 'beasts' ? -1 : picks.indexOf(id);
       cards[i].classList.toggle('on', n >= 0);
       cards[i].querySelector('.num').textContent = n >= 0 ? n + 1 : '';
     }
@@ -224,6 +151,7 @@
     refresh();
   }
   function toggle(id) {
+    if (UI.view === 'beasts') { G.sfx('ui'); showDetail(id); return; }   // this view does not select a team
     var n = picks.indexOf(id);
     if (n >= 0) picks.splice(n, 1); else if (picks.length < 6) picks.push(id);
     G.sfx('ui'); showDetail(id); teamChanged();
@@ -250,11 +178,12 @@
     $('leave').classList.toggle('hidden', st === 'off');
     $('linkbox').classList.toggle('hidden', !(Net.role === 'host' && st === 'waiting'));
     if (Net.role === 'host' && Net.room) $('link').value = roomLink();
-    $('diff').classList.toggle('hidden', st !== 'off');
-    if (st === 'off') {
+    $('mback').textContent = UI.view === 'online' && st !== 'off' ? 'Leave room and go back' : 'Back';
+    if (UI.view !== 'online') {
       start.disabled = picks.length !== 6;
       start.textContent = picks.length === 6 ? 'Start battle' : 'Select ' + (6 - picks.length) + ' more';
-    } else if (!on) { start.disabled = true; start.textContent = 'Waiting for player'; }
+    } else if (st === 'off') { start.disabled = true; start.textContent = 'Create a room first'; }
+    else if (!on) { start.disabled = true; start.textContent = 'Waiting for player'; }
     else {
       start.disabled = picks.length !== 6;
       start.textContent = picks.length !== 6 ? 'Select ' + (6 - picks.length) + ' more' : myReady ? 'Ready. Waiting…' : 'Ready';
@@ -279,9 +208,40 @@
     myReady = peerReady = false;
     startBattle(teams[0], teams[1], 'host', names);
   }
+  // Go from a battle or a result back to the Beast screen.
   function toMenu() {
-    mode = 'solo'; state = 'menu'; battle = null; ui.me = 0;
-    result.classList.add('hidden'); menu.classList.remove('hidden');
+    var v = mode === 'solo' && Net.state === 'off' ? 'solo' : 'online';   // a room that is open stays on the screen
+    mode = 'solo'; state = 'menu'; battle = null; ui.me = 0; ui.paused = false;
+    result.classList.add('hidden');
+    UI.closeAll(); UI.go('team', v);
+  }
+  // ---- screens: the functions that js/ui.js calls ---------------------------
+  var VIEW = {
+    solo: ['Play solo', 'Select 6 Beasts for your team. Then start the battle.'],
+    online: ['Play online', ''],
+    beasts: ['Beasts', 'Select a Beast to see its stats, its moves and its story.']
+  };
+  function setView(v) {
+    $('mtitle').textContent = VIEW[v][0]; $('mhint').textContent = VIEW[v][1];
+    refresh();
+  }
+  // Back button of the Beast screen. In a room, it also leaves the room.
+  function backFromTeam() {
+    if (UI.view === 'online' && Net.state !== 'off') { Net.leave(); peerGone(true); }
+    if (storyOpen) toggleStory(false);
+    UI.go('title');
+  }
+  function openPause() {
+    if (state !== 'battle' || !battle || battle.over || UI.overlay) return;
+    if (mode === 'solo') ui.paused = true;            // an online battle continues
+    keys = {}; guardBtn = false; clearTimeout(wheelTimer); ui.pick = -1;
+    UI.pause(mode !== 'solo');
+  }
+  function quitBattle() {
+    if (Net.state !== 'off') { Net.leave(); peerGone(true); }   // the title screen has no room
+    mode = 'solo'; state = 'menu'; battle = null; ui.me = 0; ui.paused = false;
+    result.classList.add('hidden');
+    UI.closeAll(); UI.go('title');
   }
   function giveAI(txt) {
     var s = battle.sides[1];
@@ -414,35 +374,38 @@
       el.onmouseenter = el.onfocus = function () { showDetail(id); };
       grid.appendChild(el);
     });
-    var ds = document.querySelectorAll('#diff button');
-    for (var i = 0; i < ds.length; i++) ds[i].onclick = function () {
-      diff = this.dataset.d;
-      for (var k = 0; k < ds.length; k++) ds[k].classList.toggle('on', ds[k] === this);
-      G.sfx('ui');
-    };
+    UI.segInit('diff', function (v) { SET.set('diff', v); });
+    UI.seg('diff', diff);
     $('random').onclick = function () { picks = shuffled().slice(0, 6); G.sfx('ui'); teamChanged(); };
     $('clear').onclick = function () { picks = []; G.sfx('ui'); teamChanged(); };
     $('sbtn').onclick = function () { G.sfx('ui'); toggleStory(); };
-    initKeyPanel();
-    initGfxPanel();
-    window.addEventListener('keydown', function (e) { if (e.code === 'Escape' && storyOpen && state === 'menu') toggleStory(false); });
+    // Esc on the Beast screen: close the story, or go back. In a room, Esc does not leave the room.
+    window.addEventListener('keydown', function (e) {
+      if (e.code !== 'Escape' || e.repeat || state !== 'menu' || UI.screen !== 'team') return;
+      if (storyOpen) toggleStory(false);
+      else if (!(UI.view === 'online' && Net.state !== 'off')) backFromTeam();
+    });
     loadLore();
     $('start').onclick = function () {
       if (picks.length !== 6) return;
       G.sfx('ui');
-      if (Net.state !== 'off') { setReady(!myReady); return; }
+      if (UI.view === 'online') { if (Net.state !== 'off') setReady(!myReady); return; }
       rival = G.TRAINER_NAMES[Math.floor(Math.random() * G.TRAINER_NAMES.length)];
       startBattle(picks.slice(), shuffled().slice(0, 6), 'solo', ['You', rival]);
     };
     // online controls
     var pn = $('pname');
-    try { myName = cleanName(localStorage.getItem('ab_name'), 'Player'); } catch (e) { /* storage is optional */ }
-    pn.value = myName === 'Player' ? '' : myName;
-    pn.oninput = function () {
-      myName = cleanName(pn.value, 'Player');
-      try { localStorage.setItem('ab_name', myName); } catch (e) { /* storage is optional */ }
-      if (online()) Net.send({ t: 'hello', name: myName });
-    };
+    myName = cleanName(SET.get('name'), 'Player');
+    pn.value = SET.get('name');
+    pn.oninput = function () { SET.set('name', pn.value); };
+    // The name and the difficulty are also in the Settings screen. Each change comes through the settings store.
+    SET.onChange(function (k) {
+      if (k === 'name') {
+        myName = cleanName(SET.get('name'), 'Player');
+        if (document.activeElement !== pn) pn.value = SET.get('name');
+        if (online()) Net.send({ t: 'hello', name: myName });
+      } else if (k === 'diff') { diff = SET.get('diff'); UI.seg('diff', diff); }
+    });
     $('create').onclick = function () { G.sfx('ui'); Net.host(); };
     $('leave').onclick = function () { G.sfx('ui'); Net.leave(); peerGone(true); };
     $('nmbtn').onclick = function () {
@@ -458,11 +421,19 @@
       else { try { document.execCommand('copy'); done(); } catch (e) { /* user can copy by hand */ } }
     };
     showDetail(G.ROSTER[0]);
+    UI.init({
+      view: setView, back: backFromTeam, show: showDetail, gfx: function () { /* the preview builds its models again by itself */ },
+      resume: function () { ui.paused = false; keys = {}; },
+      restart: function () { if (mode === 'solo' && lastTeams) startBattle(lastTeams[0], lastTeams[1], 'solo', ['You', rival]); },
+      quit: quitBattle
+    });
     refresh();
+    // First screen: the title. With a room link, or after the host loaded the page again: the online view.
     var room = new URLSearchParams(location.search).get('room'), mine = null;
     try { mine = sessionStorage.getItem('ab_host'); } catch (e) { /* storage is optional */ }
-    if (room) Net.join(room.toLowerCase());
-    else if (Net.validRoom(mine)) Net.host(mine);   // the host loaded the page again: open the same room, the link stays valid
+    if (room) { UI.go('team', 'online'); Net.join(room.toLowerCase()); }
+    else if (Net.validRoom(mine)) { UI.go('team', 'online'); Net.host(mine); }   // open the same room, the link stays valid
+    else UI.go('title');
   }
 
   // ---- battle flow --------------------------------------------------------
@@ -482,7 +453,7 @@
     if (mode !== 'solo') { key = a.join() + b.join(); seed = 0; for (k = 0; k < key.length; k++) seed = (seed * 31 + key.charCodeAt(k)) % 9973; }
     R.reset(seed);
     acc = 0; endT = 0; state = 'battle';
-    menu.classList.add('hidden'); result.classList.add('hidden');
+    UI.closeAll(); UI.go(''); result.classList.add('hidden');
     if (mode === 'host') startWorker();
     G.game = { battle: battle, ui: ui, mode: mode };
   }
@@ -492,13 +463,14 @@
     }).join('') + '</div>';
   }
   function showResult() {
-    state = 'result'; away = false; Net.reserved = '';
+    state = 'result'; away = false; Net.reserved = ''; ui.paused = false;
+    UI.closeAll();
     var w = battle.winner, t = Math.max(0, Math.round(battle.t - 2.4)), title = w === 2 ? 'Draw' : w === ui.me ? 'Victory' : 'Defeat', net = mode !== 'solo';
     result.innerHTML = '<div class="rbox"><h1 class="' + (w === 2 ? '' : w === ui.me ? 'win' : 'lose') + '">' + title + '</h1>' +
       '<p>Battle time: ' + (t / 60 | 0) + ':' + (t % 60 < 10 ? '0' : '') + t % 60 + (net ? ' · Online' : ' · Difficulty: ' + diff) + ' · Arena: ' + R.theme + '</p>' +
       '<div class="rcols">' + teamTable(battle.sides[0]) + teamTable(battle.sides[1]) + '</div>' +
       '<p id="rstatus"></p>' +
-      '<div class="rbtn"><button id="again" class="primary">Rematch</button>' + (net ? '' : '<button id="newopp">New opponent</button>') + '<button id="back">Change team</button></div></div>';
+      '<div class="rbtn"><button id="again" class="primary">Rematch</button>' + (net ? '' : '<button id="newopp">New opponent</button>') + '<button id="back">Change team</button>' + (net ? '' : '<button id="rmenu">Main menu</button>') + '</div></div>';
     result.classList.remove('hidden');
     $('again').onclick = function () {
       if (mode === 'solo') startBattle(lastTeams[0], lastTeams[1], 'solo', ['You', rival]);
@@ -507,8 +479,9 @@
     if (!net) $('newopp').onclick = function () { rival = G.TRAINER_NAMES[Math.floor(Math.random() * G.TRAINER_NAMES.length)]; startBattle(lastTeams[0], shuffled().slice(0, 6), 'solo', ['You', rival]); };
     $('back').onclick = function () {
       if (myReady) setReady(false);
-      state = 'menu'; result.classList.add('hidden'); menu.classList.remove('hidden'); refreshLobby();
+      toMenu();
     };
+    if (!net) $('rmenu').onclick = quitBattle;
     refreshLobby();
   }
 
@@ -522,6 +495,7 @@
   }
   function act(name, i) {
     if (!battle || battle.over || state !== 'battle') return;
+    if (name === 'menu') { openPause(); return; }
     if (name === 'auto') { if (mode === 'solo') toggleAuto(); return; }
     if (ui.paused || ui.auto) return;
     if (mode === 'host' && away && waitLeft > 0) return;   // the battle is on hold
@@ -558,8 +532,8 @@
   function press(code) {
     var a = KEYS.actionOf(code);
     if (!a || !battle) return false;
-    if (a === 'pause') { if (!battle.over && mode === 'solo') ui.paused = !ui.paused; }
-    else if (a === 'mute') G.muted = !G.muted;
+    if (a === 'pause') openPause();
+    else if (a === 'mute') SET.set('mute', !SET.get('mute'));
     else if (a === 'auto') act('auto', 0);
     else if (a in MOVEI) act('move', MOVEI[a]);
     else if (a in SWI) act('sw', SWI[a]);
@@ -571,8 +545,9 @@
   }
   function held(a) { var m = KEYS.get(a); return !!((m[0] && keys[m[0]]) || (m[1] && keys[m[1]])); }
   window.addEventListener('keydown', function (e) {
-    if (state !== 'battle') return;
+    if (state !== 'battle' || UI.overlay) return;
     var k = KEYS.norm(e.code);
+    if (k === 'Escape') { e.preventDefault(); if (!e.repeat) openPause(); return; }   // Esc always opens the pause menu
     if (KEYS.actionOf(k) || k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0) e.preventDefault();
     if (e.repeat) return;
     keys[k] = true;
@@ -582,7 +557,7 @@
   window.addEventListener('blur', function () { keys = {}; guardBtn = false; });
   document.addEventListener('visibilitychange', function () {
     hiddenLast = 0;
-    if (document.hidden && state === 'battle' && battle && !battle.over && mode === 'solo') ui.paused = true;
+    if (document.hidden && mode === 'solo') openPause();
   });
   window.addEventListener('mousemove', function (e) { if (state !== 'battle') return; var p = R.toArena(e.clientX, e.clientY); ui.mx = p.x; ui.my = p.y; });
   cv.addEventListener('mousedown', function (e) {
@@ -598,7 +573,7 @@
   cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   window.addEventListener('auxclick', function (e) { if (state === 'battle') e.preventDefault(); });
   window.addEventListener('wheel', function (e) {
-    if (state !== 'battle' || !battle || battle.over) return;
+    if (state !== 'battle' || !battle || battle.over || UI.overlay) return;
     e.preventDefault();
     var now = performance.now();
     if (Math.abs(e.deltaY) < 1 || now - wheelT < 70) return;   // one step for each notch of the wheel
@@ -675,9 +650,11 @@
   // One display frame. Also callable from tests through G.tick(dt).
   function tick(dt) {
     overlay();
+    UI.tick(dt);
     if (state === 'menu') {
       menuT += dt;
-      if (detailId) R.preview(detailId, dt);   // live 3D model on the stage: idle, walk, wind-up, strike
+      var pid = UI.screen === 'title' ? UI.feature : detailId;
+      if (pid) R.preview(pid, dt);   // live 3D model on the title screen or on the stage: idle, walk, wind-up, strike
       return;
     }
     if (!battle) return;
@@ -700,7 +677,7 @@
   }
 
   G.tick = tick; G.startBattle = startBattle;
-  G.dbg = function () { return { state: state, mode: mode, away: away, waitLeft: waitLeft, net: Net.state, role: Net.role, room: Net.room, battle: battle }; };
+  G.dbg = function () { return { state: state, mode: mode, screen: UI.screen, view: UI.view, overlay: UI.overlay, away: away, waitLeft: waitLeft, net: Net.state, role: Net.role, room: Net.room, battle: battle }; };
   buildMenu();
   requestAnimationFrame(function (ts) { last = ts; requestAnimationFrame(frame); });
 })();

@@ -80,6 +80,7 @@ const BTN = HUD.buttons = [];
   BTN.push({ x: 752, y: 498, w: 62, h: 38, act: 'dodge', i: 0 });
   BTN.push({ x: 818, y: 498, w: 62, h: 38, act: 'guard', i: 0 });
   BTN.push({ x: 884, y: 498, w: 68, h: 38, act: 'auto', i: 0 });
+  BTN.push({ x: 884, y: 424, w: 68, h: 25, act: 'menu', i: 0 });   // opens the pause menu (js/ui.js)
 })();
 HUD.hitButton = function (x, y) {
   for (let i = 0; i < BTN.length; i++) { const b = BTN[i]; if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b; }
@@ -207,6 +208,10 @@ function bottomBar(b, ui) {
   plate(bt.x, bt.y, bt.w, bt.h, C.surf, ui.auto || ui.note ? C.brass : C.line2);
   lab(ui.note ? 'Online' : ui.auto ? 'Auto' : 'Manual', bt.x + bt.w / 2, bt.y + (ui.note ? 23 : 18), 10, ui.auto || ui.note ? C.brass : C.ivory, 'center');
   if (!ui.note) lab(G.KEYS.text('auto', 1), bt.x + bt.w / 2, bt.y + 30, 8, C.faint, 'center');
+  bt = BTN[14];
+  plate(bt.x, bt.y, bt.w, bt.h, C.surf, C.line2);
+  lab('Menu', bt.x + 25, bt.y + 16, 9.5, C.ivory, 'center');
+  lab('Esc', bt.x + 53, bt.y + 16, 8, C.faint, 'center');
 }
 
 function topCentre(b, dt) {
@@ -335,10 +340,6 @@ HUD.draw = function (b, ui, dt, proj, bars) {
       ctx.globalAlpha = 1;
     }
   }
-  if (ui.paused) {
-    ctx.fillStyle = 'rgba(10,18,32,0.72)'; ctx.fillRect(-400, -200, W + 800, H + 400);
-    txt('Paused', 480, 268, '700 48px ' + SANS, C.ivory, 'center');
-    lab('Press ' + (G.KEYS.text('pause').replace(' \u00b7 ', ' or ') || 'the pause key') + ' to continue', 480, 294, 10, C.muted, 'center');
-  }
+  // a stopped battle: the pause menu of js/ui.js (a page element) is on top of this canvas
 };
 HUD.clear = function () { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); };

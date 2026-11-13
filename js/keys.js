@@ -1,10 +1,9 @@
 /* Arena Beasts - key bindings. Each action has 2 slots. A slot holds one input code:
    a keyboard code ("KeyW", "Space", "Shift"), a mouse button ("Mouse0" = left, "Mouse1" = middle, "Mouse2" = right)
-   or a wheel direction ("WheelUp", "WheelDown"). The player changes them in the Controls panel. They stay in localStorage. */
+   or a wheel direction ("WheelUp", "WheelDown"). The player changes them in the Controls panel. They stay in the settings store (js/settings.js). */
 (function () {
   'use strict';
   var G = window.G = window.G || {};
-  var STORE = 'ab_keys';
   // id, label, group, default slots
   var ACTIONS = [
     ['up', 'Move up', 'Move', ['KeyW', 'ArrowUp']], ['down', 'Move down', 'Move', ['KeyS', 'ArrowDown']],
@@ -13,9 +12,9 @@
     ['move1', 'Move 1', 'Attack', ['Digit1', 'Mouse0']], ['move2', 'Move 2', 'Attack', ['Digit2', 'Mouse2']],
     ['move3', 'Move 3', 'Attack', ['Digit3', '']], ['move4', 'Move 4', 'Attack', ['Digit4', '']],
     ['sig', 'Signature power', 'Attack', ['KeyR', '']],
-    ['sw1', 'Creature 1', 'Switch', ['KeyZ', '']], ['sw2', 'Creature 2', 'Switch', ['KeyX', '']], ['sw3', 'Creature 3', 'Switch', ['KeyC', '']],
-    ['sw4', 'Creature 4', 'Switch', ['KeyV', '']], ['sw5', 'Creature 5', 'Switch', ['KeyB', '']], ['sw6', 'Creature 6', 'Switch', ['KeyN', '']],
-    ['swNext', 'Next creature', 'Switch', ['WheelDown', '']], ['swPrev', 'Previous creature', 'Switch', ['WheelUp', '']],
+    ['sw1', 'Beast 1', 'Switch', ['KeyZ', '']], ['sw2', 'Beast 2', 'Switch', ['KeyX', '']], ['sw3', 'Beast 3', 'Switch', ['KeyC', '']],
+    ['sw4', 'Beast 4', 'Switch', ['KeyV', '']], ['sw5', 'Beast 5', 'Switch', ['KeyB', '']], ['sw6', 'Beast 6', 'Switch', ['KeyN', '']],
+    ['swNext', 'Next Beast', 'Switch', ['WheelDown', '']], ['swPrev', 'Previous Beast', 'Switch', ['WheelUp', '']],
     ['auto', 'Auto play', 'Other', ['Tab', '']], ['pause', 'Pause', 'Other', ['KeyP', 'Escape']], ['mute', 'Mute', 'Other', ['KeyM', '']]
   ];
   var NAMES = {
@@ -51,13 +50,13 @@
     index();
   }
   function save() {
-    try { localStorage.setItem(STORE, JSON.stringify(map)); } catch (e) { /* storage is optional */ }
+    G.SET.set('keys', map);
     listeners.forEach(function (f) { f(); });
   }
   function load() {
     defaults();
     try {
-      var o = JSON.parse(localStorage.getItem(STORE) || 'null'), used = {};
+      var o = G.SET.get('keys'), used = {};
       if (!o || typeof o !== 'object') return;
       ACTIONS.forEach(function (a) {
         var v = o[a[0]];
@@ -95,4 +94,10 @@
     onChange: function (f) { listeners.push(f); }
   };
   load();
+  // "Reset all settings" in the Settings screen empties the stored keys: go back to the default keys.
+  G.SET.onChange(function (k) {
+    if (k !== 'keys' || G.SET.get('keys') !== null) return;
+    defaults();
+    listeners.forEach(function (f) { f(); });
+  });
 })();

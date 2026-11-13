@@ -34,7 +34,7 @@ if (typeof document !== 'undefined') {
     if (lose) lose.loseContext();
   } catch (e) { /* the level stays High */ }
   let saved = 'auto';
-  try { saved = localStorage.getItem('ab_gfx') || 'auto'; } catch (e) { /* storage is optional */ }
+  if (globalThis.G && globalThis.G.SET) saved = globalThis.G.SET.get('gfx') || 'auto';
   gfxMode(saved);
 }
 

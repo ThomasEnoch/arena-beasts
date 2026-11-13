@@ -8,77 +8,142 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- The version of the files. tools/stamp.js writes it here, on each file address below, and into the import map. -->
-<script>window.AB_V = 'b30241c267';</script>
-<link rel="stylesheet" href="css/style.css?v=b30241c267">
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/","./js/gfx/app.js":"./js/gfx/app.js?v=b30241c267","./js/gfx/arena.js":"./js/gfx/arena.js?v=b30241c267","./js/gfx/fx.js":"./js/gfx/fx.js?v=b30241c267","./js/gfx/geo.js":"./js/gfx/geo.js?v=b30241c267","./js/gfx/hud.js":"./js/gfx/hud.js?v=b30241c267","./js/gfx/models/anviltortoise.js":"./js/gfx/models/anviltortoise.js?v=b30241c267","./js/gfx/models/basaltgorilla.js":"./js/gfx/models/basaltgorilla.js?v=b30241c267","./js/gfx/models/bellowsfrog.js":"./js/gfx/models/bellowsfrog.js?v=b30241c267","./js/gfx/models/censerserpent.js":"./js/gfx/models/censerserpent.js?v=b30241c267","./js/gfx/models/chandeliermoth.js":"./js/gfx/models/chandeliermoth.js?v=b30241c267","./js/gfx/models/compasshawk.js":"./js/gfx/models/compasshawk.js?v=b30241c267","./js/gfx/models/coralgolem.js":"./js/gfx/models/coralgolem.js?v=b30241c267","./js/gfx/models/gyropangolin.js":"./js/gfx/models/gyropangolin.js?v=b30241c267","./js/gfx/models/hourglasswasp.js":"./js/gfx/models/hourglasswasp.js?v=b30241c267","./js/gfx/models/kilnhound.js":"./js/gfx/models/kilnhound.js?v=b30241c267","./js/gfx/models/lanternangler.js":"./js/gfx/models/lanternangler.js?v=b30241c267","./js/gfx/models/lenschameleon.js":"./js/gfx/models/lenschameleon.js?v=b30241c267","./js/gfx/models/mercurystag.js":"./js/gfx/models/mercurystag.js?v=b30241c267","./js/gfx/models/needlescorpion.js":"./js/gfx/models/needlescorpion.js?v=b30241c267","./js/gfx/models/origamicrane.js":"./js/gfx/models/origamicrane.js?v=b30241c267","./js/gfx/models/pendulummantis.js":"./js/gfx/models/pendulummantis.js?v=b30241c267","./js/gfx/models/prismpeacock.js":"./js/gfx/models/prismpeacock.js?v=b30241c267","./js/gfx/models/resonancewhale.js":"./js/gfx/models/resonancewhale.js?v=b30241c267","./js/gfx/models/solarisscarab.js":"./js/gfx/models/solarisscarab.js?v=b30241c267","./js/gfx/models/teslajelly.js":"./js/gfx/models/teslajelly.js?v=b30241c267","./js/gfx/rig.js":"./js/gfx/rig.js?v=b30241c267","./js/gfx/sculpt.js":"./js/gfx/sculpt.js?v=b30241c267","./js/gfx/stage.js":"./js/gfx/stage.js?v=b30241c267","./js/gfx/ults.js":"./js/gfx/ults.js?v=b30241c267","./js/gfx/world.js":"./js/gfx/world.js?v=b30241c267"}}</script>
+<script>window.AB_V = 'a346f1e454';</script>
+<link rel="stylesheet" href="css/style.css?v=a346f1e454">
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/","./js/gfx/app.js":"./js/gfx/app.js?v=a346f1e454","./js/gfx/arena.js":"./js/gfx/arena.js?v=a346f1e454","./js/gfx/fx.js":"./js/gfx/fx.js?v=a346f1e454","./js/gfx/geo.js":"./js/gfx/geo.js?v=a346f1e454","./js/gfx/hud.js":"./js/gfx/hud.js?v=a346f1e454","./js/gfx/models/anviltortoise.js":"./js/gfx/models/anviltortoise.js?v=a346f1e454","./js/gfx/models/basaltgorilla.js":"./js/gfx/models/basaltgorilla.js?v=a346f1e454","./js/gfx/models/bellowsfrog.js":"./js/gfx/models/bellowsfrog.js?v=a346f1e454","./js/gfx/models/censerserpent.js":"./js/gfx/models/censerserpent.js?v=a346f1e454","./js/gfx/models/chandeliermoth.js":"./js/gfx/models/chandeliermoth.js?v=a346f1e454","./js/gfx/models/compasshawk.js":"./js/gfx/models/compasshawk.js?v=a346f1e454","./js/gfx/models/coralgolem.js":"./js/gfx/models/coralgolem.js?v=a346f1e454","./js/gfx/models/gyropangolin.js":"./js/gfx/models/gyropangolin.js?v=a346f1e454","./js/gfx/models/hourglasswasp.js":"./js/gfx/models/hourglasswasp.js?v=a346f1e454","./js/gfx/models/kilnhound.js":"./js/gfx/models/kilnhound.js?v=a346f1e454","./js/gfx/models/lanternangler.js":"./js/gfx/models/lanternangler.js?v=a346f1e454","./js/gfx/models/lenschameleon.js":"./js/gfx/models/lenschameleon.js?v=a346f1e454","./js/gfx/models/mercurystag.js":"./js/gfx/models/mercurystag.js?v=a346f1e454","./js/gfx/models/needlescorpion.js":"./js/gfx/models/needlescorpion.js?v=a346f1e454","./js/gfx/models/origamicrane.js":"./js/gfx/models/origamicrane.js?v=a346f1e454","./js/gfx/models/pendulummantis.js":"./js/gfx/models/pendulummantis.js?v=a346f1e454","./js/gfx/models/prismpeacock.js":"./js/gfx/models/prismpeacock.js?v=a346f1e454","./js/gfx/models/resonancewhale.js":"./js/gfx/models/resonancewhale.js?v=a346f1e454","./js/gfx/models/solarisscarab.js":"./js/gfx/models/solarisscarab.js?v=a346f1e454","./js/gfx/models/teslajelly.js":"./js/gfx/models/teslajelly.js?v=a346f1e454","./js/gfx/rig.js":"./js/gfx/rig.js?v=a346f1e454","./js/gfx/sculpt.js":"./js/gfx/sculpt.js?v=a346f1e454","./js/gfx/stage.js":"./js/gfx/stage.js?v=a346f1e454","./js/gfx/ults.js":"./js/gfx/ults.js?v=a346f1e454","./js/gfx/world.js":"./js/gfx/world.js?v=a346f1e454"}}</script>
 </head>
 <body>
 <canvas id="gl"></canvas>
 <canvas id="cv"></canvas>
 <div id="loading"><h1>Arena <span>Beasts</span></h1><div class="lbar"><i id="loadbar"></i></div><p id="loadtxt">Loading the 3D engine…</p></div>
 
-<div id="menu" class="screen">
-  <header>
-    <h1>Arena <span>Beasts</span></h1>
-    <div id="online" aria-label="Online play">
-      <b>Play online</b>
-      <input id="pname" maxlength="12" placeholder="Your name" aria-label="Your name" autocomplete="off">
-      <button id="create">Create room</button>
-      <span id="linkbox" class="hidden"><input id="link" readonly aria-label="Room link"><button id="copy">Copy link</button></span>
-      <span id="nstatus"></span>
-      <button id="leave" class="hidden">Leave room</button>
+<!-- Title screen: the main menu. js/ui.js -->
+<div id="title" class="screen hidden">
+  <div id="tmain">
+    <div id="tnav">
+      <h1>Arena <span>Beasts</span></h1>
+      <p class="tag">Select 6 Beasts. Fight in real time.</p>
+      <nav aria-label="Main menu">
+        <button id="tsolo" type="button" class="tbtn go"><b>Play solo</b><small>Fight the AI. There are 3 difficulty levels.</small></button>
+        <button id="tonline" type="button" class="tbtn"><b>Play online</b><small>Fight a friend. Send a room link.</small></button>
+        <button id="tbeasts" type="button" class="tbtn"><b>Beasts</b><small>Stats, moves and the story of each Beast.</small></button>
+        <button id="tset" type="button" class="tbtn"><b>Settings</b><small>Controls, graphics, sound and game.</small></button>
+      </nav>
+      <p id="tver"></p>
     </div>
-    <details id="help">
-      <summary>Controls</summary>
-      <div>
-        <p id="khint"></p>
-        <div id="keys"></div>
-        <div class="kfoot"><span><kbd>Mouse</kbd> Aim</span><button id="kreset" type="button">Reset to defaults</button></div>
-        <div class="kfoot"><span>Graphics</span><div id="gfx" role="group" aria-label="Graphics quality"><button type="button" data-g="auto">Auto</button><button type="button" data-g="high">High</button><button type="button" data-g="medium">Medium</button><button type="button" data-g="low">Low</button></div></div>
-        <p id="gfxnote"></p>
-      </div>
-    </details>
+    <div id="thero">
+      <div id="tmark"></div>
+      <button id="tfeat" type="button" title="Open this Beast"><b id="tfname"></b><span id="tfepi"></span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Beast screen: 3 views (data-view): solo, online, beasts. js/main.js -->
+<div id="menu" class="screen hidden" data-view="solo">
+  <header>
+    <button id="mback" type="button" class="btn">Back</button>
+    <h1 id="mtitle">Play solo</h1>
+    <p id="mhint"></p>
+    <div id="online" aria-label="Online play">
+      <input id="pname" maxlength="12" placeholder="Your name" aria-label="Your name" autocomplete="off">
+      <button id="create" type="button">Create room</button>
+      <span id="linkbox" class="hidden"><input id="link" readonly aria-label="Room link"><button id="copy" type="button">Copy link</button></span>
+      <span id="nstatus"></span>
+      <button id="leave" type="button" class="hidden">Leave room</button>
+    </div>
+    <button id="mset" type="button" class="btn">Settings</button>
   </header>
   <div id="gpuwarn" class="hidden" role="alert">
     <p><b>Your browser draws this game without the graphics card, so it is slow.</b> The game now uses Low graphics. To get the full picture: close all windows of the browser and start it again. If that does not help in Chrome: open Settings, then System, and turn on "Use graphics acceleration when available".</p>
     <button id="gpuok" type="button">OK</button>
   </div>
   <main>
-    <section id="grid" aria-label="Creatures"></section>
-    <section id="stage" aria-label="Selected creature">
+    <section id="grid" aria-label="Beasts"></section>
+    <section id="stage" aria-label="Selected Beast">
       <div id="smark"></div>
       <canvas id="stagecv"></canvas>
       <div id="shead"><h2 id="sname"></h2><p id="sepi"></p><div id="stypes"></div><p id="srole"></p></div>
       <button id="sbtn" type="button" class="hidden">Story</button>
-      <div id="story" class="hidden" aria-label="Story of the creature"></div>
+      <div id="story" class="hidden" aria-label="Story of the Beast"></div>
       <div id="sfoot"><div id="sstats"></div><p id="sblurb"></p></div>
     </section>
-    <aside id="detail" aria-label="Creature details"></aside>
+    <aside id="detail" aria-label="Beast details"></aside>
   </main>
   <footer>
     <div id="teamwrap"><span id="tcount">Your team 0 / 6</span><div id="team" aria-label="Your team"></div></div>
     <div id="opts">
-      <div id="diff" role="group" aria-label="Difficulty">
-        <button data-d="easy">Easy</button><button data-d="normal" class="on">Normal</button><button data-d="hard">Hard</button>
+      <div id="diff" class="seg" role="group" aria-label="Difficulty">
+        <button type="button" data-v="easy">Easy</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="hard">Hard</button>
       </div>
-      <button id="random">Random team</button>
-      <button id="clear">Clear</button>
-      <button id="start" class="primary" disabled>Select 6 more</button>
+      <button id="random" type="button">Random team</button>
+      <button id="clear" type="button">Clear</button>
+      <button id="start" type="button" class="primary" disabled>Select 6 more</button>
     </div>
   </footer>
 </div>
 
 <div id="result" class="screen hidden"></div>
-<div id="netmsg" class="hidden" role="status"><span id="nmtext"></span><button id="nmbtn"></button></div>
+<div id="netmsg" class="hidden" role="status"><span id="nmtext"></span><button id="nmbtn" type="button"></button></div>
 
-<script src="js/data.js?v=b30241c267"></script>
-<script src="js/icons.js?v=b30241c267"></script>
-<script src="js/keys.js?v=b30241c267"></script>
-<script src="js/engine.js?v=b30241c267"></script>
-<script src="js/ai.js?v=b30241c267"></script>
-<script src="js/audio.js?v=b30241c267"></script>
+<!-- Pause menu: on top of the battle. js/ui.js -->
+<div id="pause" class="screen over hidden" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+  <div class="pbox">
+    <h2 id="ptitle">Paused</h2>
+    <p id="pnote"></p>
+    <button id="presume" type="button" class="primary">Resume</button>
+    <button id="pset" type="button" class="btn">Settings</button>
+    <button id="prestart" type="button" class="btn">Restart battle</button>
+    <button id="pquit" type="button" class="btn">Quit to main menu</button>
+  </div>
+</div>
+
+<!-- Settings: on top of the title screen, the Beast screen or the pause menu. js/ui.js -->
+<div id="settings" class="screen over hidden" role="dialog" aria-modal="true" aria-labelledby="settitle">
+  <div class="sbox">
+    <header><h2 id="settitle">Settings</h2><button id="setclose" type="button" class="btn">Close</button></header>
+    <div id="stabs" role="tablist">
+      <button type="button" role="tab" data-t="controls">Controls</button><button type="button" role="tab" data-t="graphics">Graphics</button><button type="button" role="tab" data-t="sound">Sound</button><button type="button" role="tab" data-t="game">Game</button>
+    </div>
+    <div id="sbody">
+      <section id="tab-controls" role="tabpanel">
+        <p id="khint"></p>
+        <div id="keys"></div>
+        <div class="kfoot"><span><kbd>Mouse</kbd> Aim</span><button id="kreset" type="button" class="btn">Reset keys to defaults</button></div>
+      </section>
+      <section id="tab-graphics" role="tabpanel" class="hidden">
+        <div class="srow"><span>Quality</span><div id="gfx" class="seg" role="group" aria-label="Graphics quality"><button type="button" data-v="auto">Auto</button><button type="button" data-v="high">High</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="low">Low</button></div></div>
+        <p id="gfxnote" class="snote"></p>
+        <p id="gfxsoft" class="snote warn hidden">Your browser draws this game without the graphics card, so it is slow. In Chrome: open Settings, then System, and turn on "Use graphics acceleration when available". Then start the browser again.</p>
+        <p id="gfxgpu" class="snote"></p>
+      </section>
+      <section id="tab-sound" role="tabpanel" class="hidden">
+        <div class="srow"><span>Sound</span><div id="smute" class="seg" role="group" aria-label="Sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+        <div class="srow"><label for="vol">Volume</label><div class="svol"><input id="vol" type="range" min="0" max="100" step="5"><b id="volv"></b></div></div>
+        <div class="srow"><span>Test</span><button id="stest" type="button" class="btn">Play a sound</button></div>
+        <p class="snote">The mute key in a battle changes the same setting.</p>
+      </section>
+      <section id="tab-game" role="tabpanel" class="hidden">
+        <div class="srow"><label for="gname">Player name</label><input id="gname" maxlength="12" placeholder="Player" autocomplete="off"></div>
+        <p class="snote">The other player sees this name in an online battle.</p>
+        <div class="srow"><span>Difficulty (solo)</span><div id="gdiff" class="seg" role="group" aria-label="Difficulty"><button type="button" data-v="easy">Easy</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="hard">Hard</button></div></div>
+        <div class="srow"><span>Screen shake</span><div id="gshake" class="seg" role="group" aria-label="Screen shake"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+        <div class="srow"><span>All settings</span><button id="greset" type="button" class="btn">Reset all settings</button></div>
+        <p class="snote">The reset also puts the keys and the graphics back to the defaults.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js?v=a346f1e454"></script>
+<script src="js/icons.js?v=a346f1e454"></script>
+<script src="js/settings.js?v=a346f1e454"></script>
+<script src="js/keys.js?v=a346f1e454"></script>
+<script src="js/engine.js?v=a346f1e454"></script>
+<script src="js/ai.js?v=a346f1e454"></script>
+<script src="js/audio.js?v=a346f1e454"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="js/net.js?v=b30241c267"></script>
-<script type="module" src="js/gfx/app.js?v=b30241c267"></script>
+<script src="js/net.js?v=a346f1e454"></script>
+<script src="js/ui.js?v=a346f1e454"></script>
+<script type="module" src="js/gfx/app.js?v=a346f1e454"></script>
 </body>
 </html>

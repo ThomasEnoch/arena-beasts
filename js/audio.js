@@ -2,14 +2,20 @@
 (function () {
   'use strict';
   var G = window.G, ac = null, master = null, last = {}, nbuf = null;
-  G.muted = false;
+  // The volume (0 to 100) and the mute switch come from the settings store.
+  G.muted = !!G.SET.get('mute');
+  function level() { var v = G.SET.get('vol') / 100; return v * v; }
+  G.SET.onChange(function (k) {
+    if (k === 'mute') G.muted = !!G.SET.get('mute');
+    if (k === 'vol' && master) master.gain.value = level();
+  });
 
   function init() {
     if (ac) return true;
     var C = window.AudioContext || window.webkitAudioContext;
     if (!C) return false;
     ac = new C();
-    master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = level(); master.connect(ac.destination);
     nbuf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
     var d = nbuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
