@@ -66,23 +66,6 @@
       case 'freezeframe': return d < 500;
       case 'stolenhour': return d < 180;
       case 'lastwaltz': return d < 215;
-      case 'caldera': return d < 170;
-      case 'riptide': return d < 540 && d > 140;
-      case 'overgrowth': return true;
-      case 'mirage': return d < 420;
-      case 'glacier': return d < 430;
-      case 'bulwark': return d < 210 || hp < 0.5;
-      case 'cyclone': return hp < 0.7 || d < 150;
-      case 'nightfall': return true;
-      case 'zerofield':
-        for (i = 0; i < b.proj.length; i++) if (b.proj[i].side !== side.idx) n++;
-        return d < 210 || n >= 2;
-      case 'phase': return true;
-      case 'relay': return d < 380;
-      case 'monsoon': return hp < 0.75;
-      case 'xnova': case 'xpound': return d < m.d.sig.p.radius * 0.8;
-      case 'xlob': return d < m.d.sigMove.range;
-      case 'xbeam': return d < m.d.sig.p.range * 0.8;
     }
     return true;
   }

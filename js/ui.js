@@ -1,10 +1,10 @@
 /* Arena Beasts - screens: the title screen, the Settings screen and the pause menu.
    One screen shows at a time:
      'title'  the main menu
-     'team'   the Beast screen. js/main.js draws it. It has 3 views: 'solo', 'online', 'beasts'
+     'team'   the Beast screen. js/team.js draws it. It has 3 views: 'solo', 'online', 'beasts'
      ''       no menu screen (battle and result)
    One overlay can be on top of a screen: 'settings' or 'pause'.
-   js/main.js starts this file with G.UI.init(hooks). The hooks are the functions that only main.js can do.
+   js/main.js starts this file with G.UI.init(hooks). The hooks are functions of the game files (the list is in js/state.js).
    To add a screen: add its element to index.html and show it in UI.go. To add a Settings tab: add a button to #stabs
    and a section with the id "tab-<name>". */
 (function () {
@@ -248,7 +248,7 @@
       if (pauseOnline && !armed) { armed = true; armT = 4; this.textContent = 'Click again to leave'; return; }
       G.sfx('ui'); UI.closeAll(); hooks.quit();
     };
-    // Keys. This listener runs before the listeners of main.js.
+    // Keys. This listener runs before the listeners of js/team.js and js/input.js.
     window.addEventListener('keydown', function (e) {
       var k = K.norm(e.code);
       if (capture) {            // the Controls tab waits for an input

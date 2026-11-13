@@ -224,7 +224,6 @@
   function curIdx(m) {
     if (!m.cur) return -9;
     if (m.cur === m.d.sigMove) return -1;
-    if (m.cur === G.PHASE_STRIKE) return -2;
     return m.d.moves.indexOf(m.cur);
   }
   function monFull(m) {
@@ -283,7 +282,7 @@
       side.active = a; side.switchCd = num(ss.sc, 0, 60, 0);
       m.z = num(F.z, 0, 400, 0); m.face = num(F.f, -10, 10, 0);
       m.state = STATES[F.s] || 'idle'; m.st = num(F.st, -1, 60, 0); m.stMax = num(F.sm, 0.01, 60, 1);
-      m.cur = F.c === -1 ? m.d.sigMove : F.c === -2 ? G.PHASE_STRIKE : (m.d.moves[F.c] || null);
+      m.cur = F.c === -1 ? m.d.sigMove : (m.d.moves[F.c] || null);
       m.aimA = num(F.aa, -10, 10, 0); m.aimX = num(F.ax, 0, 960, 0); m.aimY = num(F.ay, 0, 540, 0);
       fl = F.fl | 0;
       m.iframes = fl & 1 ? 1 : 0; m.guarding = !!(fl & 2); m.guardT = fl & 4 ? 0 : 1; m.guardLock = !!(fl & 8);

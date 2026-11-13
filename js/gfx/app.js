@@ -1,5 +1,5 @@
 /* Arena Beasts - 3D start-up. Builds the creature models, makes the portraits, gives the game its renderer (G.R),
-   then loads main.js. The classic scripts (data, engine, ai, audio, net) are loaded before this module. */
+   then loads the game files (js/state.js has the list). The classic scripts (data, engine, ai, audio, net, ui) are loaded before this module. */
 import * as THREE from 'three';
 import { makeRenderer, setEnv, lightRig, GFX, LEVELS, gfxLevel } from './stage.js';
 import { Creature, newPose, blueprint, hasDef, register, FINISH } from './rig.js';
@@ -127,7 +127,13 @@ async function boot() {
     }
     if (barEl) barEl.style.width = '100%';
     try { await Promise.race([document.fonts.load('600 16px Fredoka'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* the fallback font is fine */ }
-    await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'js/main.js' + (window.AB_V ? '?v=' + window.AB_V : ''); s.onload = ok; s.onerror = bad; document.body.appendChild(s); });
+    // The game files (the list is in js/state.js). They download together and run in this sequence.
+    await Promise.all(['state', 'team', 'lobby', 'input', 'main'].map(n => new Promise((ok, bad) => {
+      const s = document.createElement('script');
+      s.async = false; s.src = 'js/' + n + '.js' + (window.AB_V ? '?v=' + window.AB_V : '');
+      s.onload = ok; s.onerror = () => bad(new Error('js/' + n + '.js did not load'));
+      document.body.appendChild(s);
+    })));
     World.warm();
     if (loadEl) loadEl.classList.add('hidden');
   } catch (e) {

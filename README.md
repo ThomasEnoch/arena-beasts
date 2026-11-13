@@ -33,7 +33,7 @@ gets all files of a release together. The version is a hash of the file contents
 The tool writes into `index.html` only. `node tools/stamp.js --check` changes nothing and fails if the stamp is old.
 
 If you add a file that the page loads at run time (not through a `<script>` tag or an `import`), add `?v=` + `window.AB_V` to its address,
-as `js/main.js` does for `LORE.md`.
+as `js/team.js` does for `LORE.md`.
 
 ## Tests
 
@@ -58,10 +58,16 @@ Builds each creature model without a browser. It needs `npm i three@0.160.0 --no
 |---|---|
 | `js/settings.js` | `G.SET`: the one store for all settings of the player (name, difficulty, volume, mute, screen shake, graphics, keys). |
 | `js/ui.js` | `G.UI`: the title screen, the Settings screen (4 tabs) and the pause menu. It also changes between the screens. |
-| `js/main.js` | The Beast screen (views: solo, online, beasts), the online lobby, the battle flow, the input and the loop. |
+| `js/state.js` | `G.APP`: the state that the 4 files below share, and the checks for data from the other player. |
+| `js/team.js` | The Beast screen (views: solo, online, beasts): grid, details, story, team selection. |
+| `js/lobby.js` | Online play: room, ready state, messages from the other player, connection loss, version check. |
+| `js/input.js` | Keys, mouse and wheel in a battle. |
+| `js/main.js` | The battle flow, the result screen, the game loop and the start of the game. |
 
 - To add a setting: add its default value and its check in `js/settings.js`. Then add a row to a tab in `index.html` and connect it in `js/ui.js`.
 - To add a Settings tab: add a button to `#stabs` and a section with the id `tab-<name>` in `index.html`.
+- `js/gfx/app.js` loads `state`, `team`, `lobby`, `input` and `main` in this sequence, after the 3D engine is ready.
+- Online play: the 2 players must have the same version. If not, the lobby shows a message and no battle starts.
 - To add a screen: add its element to `index.html` and show it in `UI.go` in `js/ui.js`.
 - The Beast grid shows 4 rows of 5. With more than 20 Beasts, the grid scrolls.
 

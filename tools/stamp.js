@@ -5,7 +5,7 @@
 
    The version is a hash of the contents of the site files. It changes only when a file changes.
    What the tool writes into index.html:
-     - window.AB_V = 'VERSION'                    (main.js and app.js use it for the files that they load at run time)
+     - window.AB_V = 'VERSION'                    (app.js and team.js use it for the files that they load at run time)
      - css/style.css?v=VERSION and js/*.js?v=VERSION on the link and script tags
      - the import map: one entry for each module in js/gfx, so that "import './rig.js'" inside a module gets the version too
    Options:  --check  = change nothing; exit code 1 if index.html does not have the current version. */
