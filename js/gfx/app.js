@@ -128,7 +128,7 @@ async function boot() {
     if (barEl) barEl.style.width = '100%';
     try { await Promise.race([document.fonts.load('600 16px Fredoka'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { /* the fallback font is fine */ }
     // The game files (the list is in js/state.js). They download together and run in this sequence.
-    await Promise.all(['state', 'team', 'lobby', 'input', 'main'].map(n => new Promise((ok, bad) => {
+    await Promise.all(['state', 'team', 'lobby', 'input', 'progress', 'main'].map(n => new Promise((ok, bad) => {
       const s = document.createElement('script');
       s.async = false; s.src = 'js/' + n + '.js' + (window.AB_V ? '?v=' + window.AB_V : '');
       s.onload = ok; s.onerror = () => bad(new Error('js/' + n + '.js did not load'));

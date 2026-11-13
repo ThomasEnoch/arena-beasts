@@ -3,7 +3,8 @@
      'title'  the main menu
      'team'   the Beast screen. js/team.js draws it. It has 3 views: 'solo', 'online', 'beasts'
      ''       no menu screen (battle and result)
-   One overlay can be on top of a screen: 'settings' or 'pause'.
+   One overlay can be on top of a screen: 'settings', 'pause', 'daily' (Daily Proving) or 'ledger' (Keeper's ledger).
+   js/progress.js draws the contents of 'daily' and 'ledger'.
    js/main.js starts this file with G.UI.init(hooks). The hooks are functions of the game files (the list is in js/state.js).
    To add a screen: add its element to index.html and show it in UI.go. To add a Settings tab: add a button to #stabs
    and a section with the id "tab-<name>". */
@@ -12,7 +13,7 @@
   var G = window.G, SET = G.SET, K = G.KEYS;
   function $(id) { return document.getElementById(id); }
   var UI = G.UI = { screen: '', view: 'solo', overlay: '', feature: null };
-  var hooks = {}, under = '', featT = 0, pauseOnline = false, armed = false, armT = 0;
+  var hooks = {}, under = '', featT = 0, pauseOpt = {}, armed = false, armT = 0, OVER = ['settings', 'pause', 'daily', 'ledger'];
 
   // ---- screens ------------------------------------------------------------
   // Show a screen. The live 3D canvas and the graphics notice move into the screen that shows.
@@ -36,8 +37,7 @@
   };
   function showOverlay(name) {
     UI.overlay = name;
-    $('settings').classList.toggle('hidden', name !== 'settings');
-    $('pause').classList.toggle('hidden', name !== 'pause');
+    OVER.forEach(function (o) { $(o).classList.toggle('hidden', name !== o); });
     if (capture && name !== 'settings') endCapture('');
     disarm();
   }
@@ -49,12 +49,15 @@
     showOverlay('settings');
     $('setclose').focus();
   };
-  // Open the pause menu. online = the battle continues while the menu is open.
-  UI.pause = function (online) {
-    pauseOnline = !!online; under = '';
-    $('ptitle').textContent = online ? 'Battle menu' : 'Paused';
-    $('pnote').textContent = online ? 'The online battle continues while this menu is open.' : 'The battle is stopped.';
-    $('prestart').classList.toggle('hidden', !!online);
+  // Open the Daily Proving or the Keeper's ledger. js/progress.js draws them before this call.
+  UI.open = function (name) { under = ''; showOverlay(name); };
+  // Open the pause menu. o = { title, note, restart (show the Restart button), quit (text of the Quit button),
+  // ask (text for the second click on Quit; empty = one click is sufficient) }
+  UI.pause = function (o) {
+    pauseOpt = o; under = '';
+    $('ptitle').textContent = o.title;
+    $('pnote').textContent = o.note;
+    $('prestart').classList.toggle('hidden', !o.restart);
     showOverlay('pause');
     $('presume').focus();
   };
@@ -66,6 +69,7 @@
       return true;
     }
     if (UI.overlay === 'pause') { showOverlay(''); hooks.resume(); return true; }
+    if (UI.overlay) { showOverlay(''); return true; }
     return false;
   };
   UI.closeAll = function () { under = ''; showOverlay(''); };
@@ -201,7 +205,7 @@
     seg('gdiff', SET.get('diff'));
     seg('gshake', SET.get('shake') ? 'on' : 'off');
   }
-  function disarm() { armed = false; var b = $('greset'), q = $('pquit'); if (b) b.textContent = 'Reset all settings'; if (q) q.textContent = pauseOnline ? 'Leave battle' : 'Quit to main menu'; }
+  function disarm() { armed = false; var b = $('greset'), q = $('pquit'); if (b) b.textContent = 'Reset all settings'; if (q) q.textContent = pauseOpt.quit || 'Quit to main menu'; }
   function initGame() {
     $('gname').oninput = function () { SET.set('name', this.value); };
     segInit('gdiff', function (v) { SET.set('diff', v); });
@@ -225,6 +229,9 @@
     $('tonline').onclick = function () { G.sfx('ui'); UI.go('team', 'online'); };
     $('tbeasts').onclick = function () { G.sfx('ui'); UI.go('team', 'beasts'); };
     $('tset').onclick = function () { G.sfx('ui'); UI.settings(); };
+    $('tdaily').onclick = function () { G.sfx('ui'); hooks.daily(); };
+    $('tledger').onclick = function () { G.sfx('ui'); hooks.ledger(); };
+    $('dclose').onclick = $('lclose').onclick = function () { G.sfx('ui'); UI.back(); };
     $('tfeat').onclick = function () { G.sfx('ui'); UI.go('team', 'beasts'); hooks.show(UI.feature); };
     $('tver').textContent = window.AB_V ? 'Version ' + window.AB_V : '';
     // Beast screen
@@ -244,8 +251,8 @@
     $('pset').onclick = function () { G.sfx('ui'); UI.settings(); };
     $('prestart').onclick = function () { G.sfx('ui'); UI.closeAll(); hooks.restart(); };
     $('pquit').onclick = function () {
-      // online: 2 clicks, because the other player loses the opponent
-      if (pauseOnline && !armed) { armed = true; armT = 4; this.textContent = 'Click again to leave'; return; }
+      // online battle and Daily Proving: 2 clicks, because the player cannot undo it
+      if (pauseOpt.ask && !armed) { armed = true; armT = 4; this.textContent = pauseOpt.ask; return; }
       G.sfx('ui'); UI.closeAll(); hooks.quit();
     };
     // Keys. This listener runs before the listeners of js/team.js and js/input.js.

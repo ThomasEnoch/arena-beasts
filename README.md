@@ -44,6 +44,12 @@ node test/sim.js 400 hard
 AI against AI: balance and errors.
 
 ```bash
+node test/ledger.js
+```
+
+The rules of the Keeper's ledger: marks, keys, stories, the Daily Proving and the save code.
+
+```bash
 node test/build-models.mjs
 ```
 
@@ -62,14 +68,30 @@ Builds each creature model without a browser. It needs `npm i three@0.160.0 --no
 | `js/team.js` | The Beast screen (views: solo, online, beasts): grid, details, story, team selection. |
 | `js/lobby.js` | Online play: room, ready state, messages from the other player, connection loss, version check. |
 | `js/input.js` | Keys, mouse and wheel in a battle. |
+| `js/progress.js` | The Daily Proving, the screen of the Keeper's ledger and the reward lines of the result screen. |
 | `js/main.js` | The battle flow, the result screen, the game loop and the start of the game. |
+| `js/ledger.js` | `G.LEDGER`: the progress of the player and its rules. No page code, so `test/ledger.js` can run it. |
 
 - To add a setting: add its default value and its check in `js/settings.js`. Then add a row to a tab in `index.html` and connect it in `js/ui.js`.
 - To add a Settings tab: add a button to `#stabs` and a section with the id `tab-<name>` in `index.html`.
-- `js/gfx/app.js` loads `state`, `team`, `lobby`, `input` and `main` in this sequence, after the 3D engine is ready.
+- `js/gfx/app.js` loads `state`, `team`, `lobby`, `input`, `progress` and `main` in this sequence, after the 3D engine is ready.
 - Online play: the 2 players must have the same version. If not, the lobby shows a message and no battle starts.
 - To add a screen: add its element to `index.html` and show it in `UI.go` in `js/ui.js`.
 - The Beast grid shows 4 rows of 5. With more than 20 Beasts, the grid scrolls.
+
+## Progress of the player
+
+The Keeper's ledger keeps the progress in the browser (`localStorage`, key `ab_ledger`). The rules are in `js/ledger.js`:
+
+- A new player has 8 Beasts and 1 key. A key opens one Beast that the player selects.
+- A solo victory gives 2, 3 or 4 marks (easy, normal, hard). A defeat gives 1 mark. 3 marks make 1 key.
+- The story of a Beast opens after the first victory with that Beast in the team.
+- The Daily Proving is one battle for each date. The date makes the teams, the opponent and the arena, so all players get the same battle.
+  The player has one try. A victory gives 5 marks, a defeat 3 marks. Each try is one stamp. A day without play costs nothing.
+- An unlock gives an option, not more power. Online play has all Beasts open and gives no marks.
+- The save code is the ledger as text. The player can keep a copy or load it in another browser.
+
+To change the numbers, change `RULES` in `js/ledger.js`. Then run `node test/ledger.js`.
 
 ## Documents
 

@@ -1,8 +1,9 @@
 /* Arena Beasts - the Beast screen (#menu): the grid of Beasts, the details of one Beast, its story and the team selection.
-   The screen has 3 views (G.UI.view): 'solo' and 'online' select a team, 'beasts' only shows the Beasts. */
+   The screen has 3 views (G.UI.view): 'solo' and 'online' select a team, 'beasts' only shows the Beasts.
+   Locks: the Keeper's ledger (js/ledger.js) says which Beasts and stories are open. The online view has all Beasts open. */
 (function () {
   'use strict';
-  var G = window.G, A = G.APP, Net = G.Net, UI = G.UI, SET = G.SET, $ = A.$;
+  var G = window.G, A = G.APP, Net = G.Net, UI = G.UI, SET = G.SET, L = G.LEDGER, $ = A.$;
   var CAT = { phys: 'Physical', spec: 'Special', status: 'Status' };
 
   function chips(types) { return types.map(function (t) { return G.typeBadge(t, true); }).join(''); }
@@ -59,6 +60,7 @@
     }).join('');
     $('sstats').innerHTML = rows;
     if (storyOpen) renderStory(id);
+    drawLock();
     $('detail').innerHTML = '<section class="dstats"><h3>Stats</h3>' + rows + '</section><section class="dmoves"><h3>Moves</h3>' + moves +
       '</section><section class="dsig"><h3>Signature power</h3><div class="sig"><div class="sh">' + G.typeBadge(d.sig.type) + '<b>' + d.sig.name + '</b></div><p>' + d.sig.desc + '</p><p class="cost">Cost: ' + d.sig.cost + '</p></div></section>';
   }
@@ -82,6 +84,12 @@
     el.textContent = '';
     if (!L) return;
     p = document.createElement('h3'); p.textContent = d.name + ' - ' + d.epithet; el.appendChild(p);
+    if (!G.LEDGER.story(id)) {   // the story is a reward
+      p = document.createElement('p'); p.className = 'lockmsg';
+      p.textContent = 'This story is closed. Win a battle with ' + d.name + ' in your team to open it. A victory in the Daily Proving opens the stories of its 6 Beasts.';
+      el.appendChild(p);
+      return;
+    }
     p = document.createElement('p'); p.className = 'guilds'; p.textContent = 'Guilds: ' + L.guilds; el.appendChild(p);
     for (i = 0; i < L.f.length; i++) {
       p = document.createElement('p'); b = document.createElement('b'); b.textContent = L.f[i][0];
@@ -97,12 +105,23 @@
     if (storyOpen) renderStory(A.detailId);
   }
 
+  // ---- locks and keys (js/ledger.js) ---------------------------------------
+  function isLocked(id) { return UI.view !== 'online' && !L.has(id); }
+  // The button that opens the Beast on the stage, and the keys in the header.
+  function drawLock() {
+    var id = A.detailId, b = $('ubtn'), i = L.info(), lk = !!id && isLocked(id);
+    b.classList.toggle('hidden', !lk);
+    if (lk) { b.disabled = i.keys < 1; b.textContent = i.keys < 1 ? 'Locked. Win battles to get a key.' : 'Open ' + G.DEX[id].name + ' with 1 key'; }
+    $('mkeys').textContent = UI.view === 'online' ? '' : i.beasts === i.total ? 'All Beasts are open' : 'Keys: ' + i.keys + ' · next key: ' + i.prog + ' / ' + i.need + ' marks';
+  }
+
   // ---- team selection -----------------------------------------------------
   // Draw the selection marks, the team tray and the Start button again.
   function refresh() {
     var cards = document.querySelectorAll('.card'), picks = A.picks, i, id, n;
     for (i = 0; i < cards.length; i++) {
       id = cards[i].dataset.id; n = UI.view === 'beasts' ? -1 : picks.indexOf(id);
+      cards[i].classList.toggle('locked', isLocked(id));
       cards[i].classList.toggle('on', n >= 0);
       cards[i].querySelector('.num').textContent = n >= 0 ? n + 1 : '';
     }
@@ -119,6 +138,7 @@
       } else slot.innerHTML = '<span class="empty">' + (i + 1) + '</span>';
       team.appendChild(slot);
     }
+    drawLock();
     A.refreshLobby();
   }
   function teamChanged() {
@@ -126,7 +146,7 @@
     refresh();
   }
   function toggle(id) {
-    if (UI.view === 'beasts') { G.sfx('ui'); showDetail(id); return; }   // this view does not select a team
+    if (UI.view === 'beasts' || isLocked(id)) { G.sfx('ui'); showDetail(id); return; }   // no team selection in this view, or the Beast is locked
     var n = A.picks.indexOf(id);
     if (n >= 0) A.picks.splice(n, 1); else if (A.picks.length < 6) A.picks.push(id);
     G.sfx('ui'); showDetail(id); teamChanged();
@@ -145,6 +165,7 @@
   };
   function setView(v) {
     $('mtitle').textContent = VIEW[v][0]; $('mhint').textContent = VIEW[v][1];
+    if (v === 'solo') A.picks = A.picks.filter(L.has);   // a team from the online view can have locked Beasts
     refresh();
   }
   // Back button of the Beast screen. In a room, it also leaves the room.
@@ -171,7 +192,9 @@
     UI.segInit('diff', function (v) { SET.set('diff', v); });
     UI.seg('diff', A.diff);
     SET.onChange(function (k) { if (k === 'diff') { A.diff = SET.get('diff'); UI.seg('diff', A.diff); } });
-    $('random').onclick = function () { A.picks = shuffled().slice(0, 6); G.sfx('ui'); teamChanged(); };
+    $('random').onclick = function () { A.picks = shuffled().filter(function (id) { return !isLocked(id); }).slice(0, 6); G.sfx('ui'); teamChanged(); };
+    $('ubtn').onclick = function () { if (L.unlock(A.detailId)) G.sfx('ready'); };
+    L.onChange(function () { refresh(); if (storyOpen) renderStory(A.detailId); });
     $('clear').onclick = function () { A.picks = []; G.sfx('ui'); teamChanged(); };
     $('sbtn').onclick = function () { G.sfx('ui'); toggleStory(); };
     // Esc on the Beast screen: close the story, or go back. In a room, Esc does not leave the room.
@@ -191,6 +214,6 @@
     showDetail(G.ROSTER[0]);
   }
 
-  A.showDetail = showDetail; A.refresh = refresh; A.shuffled = shuffled;
+  A.showDetail = showDetail; A.refresh = refresh; A.shuffled = shuffled; A.spriteCanvas = spriteCanvas; A.tcols = tcols;
   A.setView = setView; A.backFromTeam = backFromTeam; A.initTeam = initTeam;
 })();

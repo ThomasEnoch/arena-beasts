@@ -20,7 +20,7 @@
   function act(name, i) {
     if (!live()) return;
     if (name === 'menu') { openPause(); return; }
-    if (name === 'auto') { if (A.mode === 'solo') toggleAuto(); return; }
+    if (name === 'auto') { if (A.mode === 'solo' && !A.daily) toggleAuto(); return; }   // the Daily Proving has no auto play
     if (ui.paused || ui.auto) return;
     if (A.mode === 'host' && A.away && A.waitLeft > 0) return;   // the battle is on hold
     if (A.mode === 'guest') { Net.send({ t: 'a', k: name, i: i, ax: A.r1(ui.mx), ay: A.r1(ui.my) }); return; }
@@ -29,6 +29,7 @@
   function toggleAuto() {
     var s = A.battle.sides[0], c = s.ctrl;
     ui.auto = !ui.auto; s.isAI = ui.auto;
+    if (ui.auto) A.autoUsed = true;                   // the ledger gives fewer marks for this battle
     if (ui.auto) s.ai = G.makeAI('normal');
     c.mx = c.my = 0; c.guard = false; c.move = -1; c.sw = -1;
     G.sfx('ui');
@@ -38,7 +39,9 @@
     if (!live() || UI.overlay) return;
     if (A.mode === 'solo') ui.paused = true;
     A.keys = {}; A.guardBtn = false; clearTimeout(wheelTimer); ui.pick = -1;
-    UI.pause(A.mode !== 'solo');
+    if (A.mode !== 'solo') UI.pause({ title: 'Battle menu', note: 'The online battle continues while this menu is open.', restart: false, quit: 'Leave battle', ask: 'Click again to leave' });
+    else if (A.daily) UI.pause({ title: 'Paused', note: 'The battle is stopped. You have one try. If you leave, it is a defeat.', restart: false, quit: 'Give up', ask: 'Click again to give up' });
+    else UI.pause({ title: 'Paused', note: 'The battle is stopped.', restart: true, quit: 'Quit to main menu', ask: '' });
   }
   function wheelCommit() {
     var p = ui.pick;

@@ -3,7 +3,7 @@
    The title screen, the Settings screen and the pause menu are in js/ui.js. */
 (function () {
   'use strict';
-  var G = window.G, A = G.APP, R = G.R, Net = G.Net, Sync = G.NetSync, UI = G.UI, $ = A.$;
+  var G = window.G, A = G.APP, R = G.R, Net = G.Net, Sync = G.NetSync, UI = G.UI, L = G.LEDGER, $ = A.$;
   var result = $('result'), ui = A.ui;
   var acc = 0, last = 0, STEP = 1 / 60, endT = 0, outEv = [], stepN = 0, hiddenLast = 0;
 
@@ -11,12 +11,18 @@
 
   // ---- battle flow --------------------------------------------------------
   // a, b = the 2 teams (6 Beast ids each). m = 'solo', 'host' or 'guest'.
-  function startBattle(a, b, m, names) {
+  // o (optional) = { daily: date of a Daily Proving that counts, practice: date of a Daily Proving practice battle,
+  //                  seed: number of the arena, diff: difficulty of the AI }
+  function startBattle(a, b, m, names, o) {
     var battle = A.battle = new G.Battle(a, b, { names: names });
+    o = o || {};
     A.mode = m;
+    A.daily = o.daily || null; A.practice = o.practice || null; A.autoUsed = false;
+    A.rated = m === 'solo' && !o.practice;             // only a solo battle gives marks
+    A.battleDiff = o.diff || A.diff;
     A.lastTeams = [a.slice(), b.slice()];
     ui.me = m === 'guest' ? 1 : 0;
-    if (m === 'solo') { battle.sides[1].isAI = true; battle.sides[1].ai = G.makeAI(A.diff); }
+    if (m === 'solo') { battle.sides[1].isAI = true; battle.sides[1].ai = G.makeAI(A.battleDiff); }
     if (m === 'guest') { battle.ev.length = 0; Sync.reset(); }
     ui.auto = false; ui.paused = false; ui.note = '';
     A.resetInput();
@@ -26,6 +32,7 @@
     // online: the 2 players get the same arena, calculated from the 2 teams
     var seed = -1, key, k;
     if (m !== 'solo') { key = a.join() + b.join(); seed = 0; for (k = 0; k < key.length; k++) seed = (seed * 31 + key.charCodeAt(k)) % 9973; }
+    else if (typeof o.seed === 'number') seed = o.seed;   // Daily Proving: the date gives the arena
     R.reset(seed);
     acc = 0; endT = 0; A.state = 'battle';
     UI.closeAll(); UI.go(''); result.classList.add('hidden');
@@ -35,16 +42,16 @@
   // Go from a battle or a result back to the Beast screen.
   function toMenu() {
     var v = A.mode === 'solo' && Net.state === 'off' ? 'solo' : 'online';   // a room that is open stays on the screen
-    A.mode = 'solo'; A.state = 'menu'; A.battle = null; ui.me = 0; ui.paused = false;
+    A.mode = 'solo'; A.state = 'menu'; A.battle = null; A.daily = A.practice = null; ui.me = 0; ui.paused = false;
     result.classList.add('hidden');
     UI.closeAll(); UI.go('team', v);
   }
-  // Go from a battle or a result to the title screen.
+  // Go from a battle or a result to the title screen. A Daily Proving that the player leaves stays a defeat in the ledger.
   function quitBattle() {
     if (Net.state !== 'off') { Net.leave(); A.peerGone(true); }   // the title screen has no room
-    A.mode = 'solo'; A.state = 'menu'; A.battle = null; ui.me = 0; ui.paused = false;
+    A.mode = 'solo'; A.state = 'menu'; A.battle = null; A.daily = A.practice = null; ui.me = 0; ui.paused = false;
     result.classList.add('hidden');
-    UI.closeAll(); UI.go('title');
+    UI.closeAll(); UI.go('title'); A.drawTitle();
   }
   function soloRematch(newOpponent) {
     if (newOpponent) A.rival = G.TRAINER_NAMES[Math.floor(Math.random() * G.TRAINER_NAMES.length)];
@@ -60,22 +67,36 @@
     A.state = 'result'; A.away = false; Net.reserved = ''; ui.paused = false;
     UI.closeAll();
     var w = battle.winner, t = Math.max(0, Math.round(battle.t - 2.4)), title = w === 2 ? 'Draw' : w === ui.me ? 'Victory' : 'Defeat', net = A.mode !== 'solo';
-    result.innerHTML = '<div class="rbox"><h1 class="' + (w === 2 ? '' : w === ui.me ? 'win' : 'lose') + '">' + title + '</h1>' +
-      '<p>Battle time: ' + (t / 60 | 0) + ':' + (t % 60 < 10 ? '0' : '') + t % 60 + (net ? ' · Online' : ' · Difficulty: ' + A.diff) + ' · Arena: ' + R.theme + '</p>' +
+    var win = w === ui.me, team = A.lastTeams[0], date = A.daily || A.practice, gain = null, share = '', kind, btns;
+    // the ledger: marks, keys and stories from this battle
+    if (A.daily) {
+      gain = L.dailyEnd(A.daily, { win: win, t: t, left: battle.sides[0].team.filter(function (m) { return !m.fainted; }).length, team: team });
+      share = A.shareText(A.daily, L.daily(A.daily));
+    } else if (A.rated && !net) gain = L.battle({ win: win, diff: A.battleDiff, auto: A.autoUsed, team: team });
+    kind = net ? ' · Online' : date ? ' · Daily Proving ' + A.dateLabel(date) + (A.practice ? ' · practice' : '') : ' · Difficulty: ' + A.battleDiff;
+    btns = date ? '<button id="again" class="primary">Practice again</button><button id="rmenu">Main menu</button>'
+      : '<button id="again" class="primary">Rematch</button>' + (net ? '' : '<button id="newopp">New opponent</button>') + '<button id="back">Change team</button>' +
+        (gain && gain.keys ? '<button id="ropen">Open a Beast</button>' : '') + (net ? '' : '<button id="rmenu">Main menu</button>');
+    result.innerHTML = '<div class="rbox"><h1 class="' + (w === 2 ? '' : win ? 'win' : 'lose') + '">' + title + '</h1>' +
+      '<p>Battle time: ' + (t / 60 | 0) + ':' + (t % 60 < 10 ? '0' : '') + t % 60 + kind + ' · Arena: ' + R.theme + '</p>' +
       '<div class="rcols">' + teamTable(battle.sides[0]) + teamTable(battle.sides[1]) + '</div>' +
+      A.gainHtml(gain) + (share ? '<pre class="rshare" id="rshare"></pre>' : '') +
       '<p id="rstatus"></p>' +
-      '<div class="rbtn"><button id="again" class="primary">Rematch</button>' + (net ? '' : '<button id="newopp">New opponent</button>') + '<button id="back">Change team</button>' + (net ? '' : '<button id="rmenu">Main menu</button>') + '</div></div>';
+      '<div class="rbtn">' + btns + (share ? '<button id="rcopy">Copy result</button>' : '') + '</div></div>';
     result.classList.remove('hidden');
+    if (share) { $('rshare').textContent = share; $('rcopy').onclick = function () { A.copyText(share, $('rcopy'), 'Copy result'); }; }
     $('again').onclick = function () {
-      if (A.mode === 'solo') soloRematch(false);
+      if (date) A.startDaily(true);
+      else if (A.mode === 'solo') soloRematch(false);
       else A.setReady(!A.myReady);
     };
-    if (!net) $('newopp').onclick = function () { soloRematch(true); };
-    $('back').onclick = function () {
+    if ($('newopp')) $('newopp').onclick = function () { soloRematch(true); };
+    if ($('back')) $('back').onclick = function () {
       if (A.myReady) A.setReady(false);
       toMenu();
     };
-    if (!net) $('rmenu').onclick = quitBattle;
+    if ($('ropen')) $('ropen').onclick = function () { toMenu(); UI.go('team', 'beasts'); };
+    if ($('rmenu')) $('rmenu').onclick = quitBattle;
     A.refreshLobby();
   }
 
@@ -159,16 +180,17 @@
 
   A.startBattle = startBattle; A.toMenu = toMenu;
   G.tick = tick; G.startBattle = startBattle;
-  G.dbg = function () { return { state: A.state, mode: A.mode, screen: UI.screen, view: UI.view, overlay: UI.overlay, away: A.away, waitLeft: A.waitLeft, net: Net.state, role: Net.role, room: Net.room, battle: A.battle }; };
+  G.dbg = function () { return { state: A.state, mode: A.mode, daily: A.daily, practice: A.practice, rated: A.rated, screen: UI.screen, view: UI.view, overlay: UI.overlay, away: A.away, waitLeft: A.waitLeft, net: Net.state, role: Net.role, room: Net.room, battle: A.battle }; };
 
   // ---- start of the game --------------------------------------------------
   A.initTeam();
   A.initLobby();
+  A.initProgress();
   UI.init({
     view: A.setView, back: A.backFromTeam, show: A.showDetail, gfx: function () { /* the preview builds its models again by itself */ },
     resume: function () { ui.paused = false; A.keys = {}; },
-    restart: function () { if (A.mode === 'solo' && A.lastTeams) soloRematch(false); },
-    quit: quitBattle
+    restart: function () { if (A.practice) A.startDaily(true); else if (A.mode === 'solo' && !A.daily && A.lastTeams) soloRematch(false); },
+    quit: quitBattle, daily: A.openDaily, ledger: A.openLedger
   });
   A.refresh();
   // First screen: the title. With a room link, or after the host loaded the page again: the online view.
