@@ -1,9 +1,10 @@
-/* Headless test of the Keeper's ledger (js/ledger.js): marks, keys, stories, the Daily Proving and the save code.
+/* Headless test of the Keeper's ledger (js/ledger.js): marks, keys, stories, the Daily Proving, the Keeper and the save code.
    Run: node test/ledger.js */
 'use strict';
 var mem = {};
 globalThis.localStorage = { getItem: function (k) { return k in mem ? mem[k] : null; }, setItem: function (k, v) { mem[k] = String(v); }, removeItem: function (k) { delete mem[k]; } };
 require('../js/data.js');
+require('../js/keeper.js');
 require('../js/ledger.js');
 var G = globalThis.G, L = G.LEDGER, fails = 0, n = 0;
 function eq(what, got, want) {
@@ -52,11 +53,23 @@ var k0 = L.info().keys;
 L.battle({ win: true, diff: 'hard', auto: false, team: [] }); L.battle({ win: true, diff: 'hard', auto: false, team: [] });
 eq('no key without a locked Beast', L.info().keys, k0);
 
+// the Keeper of the player: default, change, data that is not valid
+eq('default Keeper', L.keeper(), { guild: 'Ember', cmds: ['rally', 'brace'] });
+L.setKeeper({ guild: 'Gale', cmds: ['focus', 'quick'] });
+eq('new Keeper', L.keeper(), { guild: 'Gale', cmds: ['focus', 'quick'] });
+L.setKeeper({ guild: 'Nobody', cmds: ['focus', 'focus'] });
+eq('bad Keeper gives the default', L.keeper(), { guild: 'Ember', cmds: ['rally', 'brace'] });
+L.setKeeper({ guild: 'Iron', cmds: ['whistle', 'rally'] });
+var kc = L.keeper(); kc.cmds[0] = 'x';
+eq('the record is a copy', L.keeper().cmds[0], 'whistle');
+
 // save code: export, import, bad codes
 var code = L.exportCode(), before = JSON.stringify(L.info());
 mem = {}; L.reload();
 eq('new browser', L.info().beasts, 8);
+eq('new browser Keeper', L.keeper().guild, 'Ember');
 eq('import', L.importCode(code), true); eq('same ledger', JSON.stringify(L.info()), before);
+eq('the code has the Keeper', L.keeper(), { guild: 'Iron', cmds: ['whistle', 'rally'] });
 eq('bad code', L.importCode('hello'), false); eq('bad json', L.importCode('AB1.' + Buffer.from('{"v":2}').toString('base64')), false);
 eq('unknown Beast is dropped', (L.importCode('AB1.' + Buffer.from(JSON.stringify({ v: 1, beasts: ['nobody', 'gyropangolin'], keys: 500, marks: -4 })).toString('base64')), [L.info().beasts, L.info().keys, L.info().marks]), [9, 99, 0]);
 // storage survives a reload

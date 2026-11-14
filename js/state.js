@@ -1,7 +1,8 @@
 /* Arena Beasts - the state that the game files share: G.APP.
-   js/gfx/app.js loads these 6 files in this sequence, after the 3D engine is ready:
+   js/gfx/app.js loads these 7 files in this sequence, after the 3D engine is ready:
      js/state.js   this file: the shared state and the checks for data from the other player
      js/team.js    the Beast screen: grid, details, story, team selection
+     js/keeperui.js  the selection of the guild and of the 2 commands of the player's Keeper
      js/lobby.js   online play: room, ready, messages from the other player, connection loss
      js/input.js   keys, mouse and wheel in a battle
      js/progress.js  the Daily Proving, the screen of the Keeper's ledger, the reward lines of the result screen
@@ -14,6 +15,8 @@
     // the game. state: 'menu', 'battle' or 'result'. mode: 'solo' (AI opponent), 'host' (runs the battle for 2 players),
     // 'guest' (shows the battle of the host)
     battle: null, state: 'menu', mode: 'solo', lastTeams: null, rival: 'Rival',
+    // the Keepers of the 2 sides of the last battle (js/keeper.js). peerKeeper = the Keeper that the other player sent.
+    lastKeepers: null, peerKeeper: null,
     // daily = the date of a Daily Proving battle that counts, or null. rated = the battle gives marks. autoUsed = the AI played for the player.
     daily: null, rated: false, autoUsed: false, practice: null,
     ui: { me: 0, auto: false, paused: false, mx: 480, my: 270, note: '', pick: -1 },   // the HUD reads this

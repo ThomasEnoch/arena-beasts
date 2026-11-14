@@ -1,10 +1,13 @@
 /* Arena Beasts - online play: the room, the ready state, the messages from the other player and a lost connection.
    The connection itself is in js/net.js (G.Net). The battle snapshots are in G.NetSync.
-   Messages (m.t): hello, ready, start, resume, lobby, i (held input), a (one action), s (snapshot), pi/po (ping), full. */
+   Messages (m.t): hello, ready, start, resume, lobby, i (held input), a (one action), s (snapshot), pi/po (ping), full.
+   "ready" has the team and the Keeper of the player. "start" and "resume" have the 2 teams and the 2 Keepers. */
 (function () {
   'use strict';
-  var G = window.G, A = G.APP, Net = G.Net, Sync = G.NetSync, UI = G.UI, SET = G.SET, $ = A.$;
+  var G = window.G, A = G.APP, Net = G.Net, Sync = G.NetSync, UI = G.UI, SET = G.SET, L = G.LEDGER, KP = G.KEEPER, $ = A.$;
   var ovText = null;
+  // The 2 Keepers of a message. Data that is not valid gives the default Keeper.
+  function keepers(m) { var k = Array.isArray(m.keepers) ? m.keepers : []; return [KP.clean(k[0]), KP.clean(k[1])]; }
   // The 2 players must have the same release of the game. If not, the battle of the guest goes out of step with the host.
   var MYV = String(window.AB_V || '');
   function hello() { Net.send({ t: 'hello', name: A.myName, v: MYV }); }
@@ -49,7 +52,7 @@
   function setReady(v) {
     if (!A.online() || !verOK() || A.picks.length !== 6) return;
     A.myReady = v; A.notice = '';
-    Net.send({ t: 'ready', on: v, team: v ? A.picks : null });
+    Net.send({ t: 'ready', on: v, team: v ? A.picks : null, keeper: v ? L.keeper() : null });
     refreshLobby();
     maybeStart();
   }
@@ -57,9 +60,10 @@
     if (Net.role !== 'host' || !A.online() || !verOK() || !A.myReady || !A.peerReady || !A.peerTeam || A.picks.length !== 6) return;
     if (A.state === 'battle' && !A.battle.over) return;
     var teams = [A.picks.slice(), A.peerTeam.slice()], names = [A.myName, A.peerName === A.myName ? A.peerName + ' 2' : A.peerName];
-    Net.send({ t: 'start', teams: teams, names: names });
+    var kp = [L.keeper(), KP.clean(A.peerKeeper)];
+    Net.send({ t: 'start', teams: teams, names: names, keepers: kp });
     A.myReady = A.peerReady = false;
-    A.startBattle(teams[0], teams[1], 'host', names);
+    A.startBattle(teams[0], teams[1], 'host', names, { keepers: kp });
   }
   function giveAI(txt) {
     var s = A.battle.sides[1];
@@ -95,7 +99,7 @@
     var s = A.battle.sides[1], c = s.ctrl;
     A.away = false; s.isAI = false;
     c.mx = c.my = 0; c.guard = false; c.dodge = false; c.sig = false; c.move = -1; c.sw = -1;
-    Net.send({ t: 'resume', teams: A.lastTeams, names: [A.battle.sides[0].name, s.name] });
+    Net.send({ t: 'resume', teams: A.lastTeams, names: [A.battle.sides[0].name, s.name], keepers: A.lastKeepers });
     Net.send(Sync.snap(A.battle, [], A.snapN++));
     A.battle.msg(s.name + ' is back.', '#8dff9a');
   }
@@ -140,7 +144,7 @@
         refreshLobby();
         break;
       case 'ready':
-        A.peerReady = !!m.on; A.peerTeam = A.peerReady ? A.cleanTeam(m.team) : null;
+        A.peerReady = !!m.on; A.peerTeam = A.peerReady ? A.cleanTeam(m.team) : null; A.peerKeeper = KP.clean(m.keeper);
         if (!A.peerTeam) A.peerReady = false;
         refreshLobby(); maybeStart();
         break;
@@ -149,7 +153,7 @@
         a = A.cleanTeam(m.teams && m.teams[0]); c = A.cleanTeam(m.teams && m.teams[1]);
         if (!a || !c) break;
         A.myReady = A.peerReady = false;
-        A.startBattle(a, c, 'guest', [A.cleanName(m.names && m.names[0], 'Host'), A.cleanName(m.names && m.names[1], 'Guest')]);
+        A.startBattle(a, c, 'guest', [A.cleanName(m.names && m.names[0], 'Host'), A.cleanName(m.names && m.names[1], 'Guest')], { keepers: keepers(m) });
         break;
       case 'resume':   // the host has a battle in progress for this player
         if (Net.role !== 'guest' || !verOK()) break;
@@ -158,7 +162,7 @@
         A.myReady = A.peerReady = false;
         // After a short connection loss the battle is still on the screen. After a page reload, build it again.
         if (!(liveGuestBattle() && A.lastTeams && A.lastTeams[0].join() === a.join() && A.lastTeams[1].join() === c.join()))
-          A.startBattle(a, c, 'guest', [A.cleanName(m.names && m.names[0], 'Host'), A.cleanName(m.names && m.names[1], 'Guest')]);
+          A.startBattle(a, c, 'guest', [A.cleanName(m.names && m.names[0], 'Host'), A.cleanName(m.names && m.names[1], 'Guest')], { keepers: keepers(m) });
         if (A.picks.length !== 6) { A.picks = c.slice(); A.refresh(); }
         break;
       case 'lobby':    // the host has no battle for this player (for example, the host loaded the page again)

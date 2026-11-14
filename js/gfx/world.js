@@ -327,6 +327,16 @@ World.consume = function (b, ui) {
         G.sfx('fire'); break;
       case 'ready': if (e.side === ui.me) { HUD.floatTxt(e.x, e.y, 90, 'Signature ready!', '#ffe27a', 14, 1.4); G.sfx('ready'); } fx.ring(X, Z, 1.4, 0.3, 0.5, '#ffe27a', 0.1); fx.stage(X, Z, true); break;
       case 'go': HUD.banner('Fight!', '#ffc83d', 1.1); G.sfx('go'); arena.cheer = 1; break;
+      case 'cmd':   // a Keeper command (js/keeper.js)
+        if (!G.KEEPER.CMDS[e.id]) break;
+        HUD.callout(e.side ? 1 : 0, G.KEEPER.CMDS[e.id].name, null, true);
+        fx.ring(X, Z, 1.8, 0.3, 0.5, '#ffc83d', 0.14); fx.stage(X, Z, true); fx.light(X, 0.8, Z, '#ffc83d', 26, 0.35);
+        G.sfx('ready'); arena.command(e.side ? 1 : 0); arena.cheer = Math.max(arena.cheer, 0.9);
+        break;
+      case 'fav':   // the crowd gave favour for a good action
+        if (e.side === ui.me) HUD.floatTxt(e.x, e.y, 104, 'Crowd +' + (e.n | 0), '#ffc83d', 12, 1.1);
+        arena.cheer = Math.max(arena.cheer, 0.7);
+        break;
       case 'end':
         HUD.banner(e.winner === 2 ? 'Draw' : e.winner === ui.me ? 'Victory!' : 'Defeat', e.winner === 2 ? '#ffffff' : e.winner === ui.me ? '#ffc83d' : '#ff6b5e', 3);
         G.sfx(e.winner === ui.me ? 'win' : 'lose'); arena.cheer = 2;

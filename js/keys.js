@@ -12,6 +12,7 @@
     ['move1', 'Move 1', 'Attack', ['Digit1', 'Mouse0']], ['move2', 'Move 2', 'Attack', ['Digit2', 'Mouse2']],
     ['move3', 'Move 3', 'Attack', ['Digit3', '']], ['move4', 'Move 4', 'Attack', ['Digit4', '']],
     ['sig', 'Signature power', 'Attack', ['KeyR', '']],
+    ['cmd1', 'Keeper command 1', 'Keeper', ['KeyE', '']], ['cmd2', 'Keeper command 2', 'Keeper', ['KeyF', '']],
     ['sw1', 'Beast 1', 'Switch', ['KeyZ', '']], ['sw2', 'Beast 2', 'Switch', ['KeyX', '']], ['sw3', 'Beast 3', 'Switch', ['KeyC', '']],
     ['sw4', 'Beast 4', 'Switch', ['KeyV', '']], ['sw5', 'Beast 5', 'Switch', ['KeyB', '']], ['sw6', 'Beast 6', 'Switch', ['KeyN', '']],
     ['swNext', 'Next Beast', 'Switch', ['WheelDown', '']], ['swPrev', 'Previous Beast', 'Switch', ['WheelUp', '']],
@@ -66,6 +67,11 @@
           if (c) used[c] = 1;
           return c;
         });
+      });
+      // An action that is newer than the stored keys keeps its default key, if no stored action has that key.
+      ACTIONS.forEach(function (a) {
+        if (Array.isArray(o[a[0]])) return;
+        map[a[0]] = map[a[0]].map(function (c) { if (!c || used[c]) return ''; used[c] = 1; return c; });
       });
       index();
     } catch (e) { defaults(); }

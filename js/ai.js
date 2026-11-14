@@ -1,15 +1,17 @@
-/* Arena Beasts - opponent AI. It writes to side.ctrl only, the same interface as the player. */
+/* Arena Beasts - opponent AI. It writes to side.ctrl only, the same interface as the player.
+   The AI also uses the 2 commands of its Keeper (js/keeper.js). */
 (function (root) {
   'use strict';
   var G = root.G, AR = G.ARENA;
 
   G.DIFF = {
-    easy: { think: 0.32, err: 0.36, dodge: 0.18, gap: 0.95, lead: 0.2, sw: 0 },
-    normal: { think: 0.2, err: 0.19, dodge: 0.48, gap: 0.42, lead: 0.6, sw: 0.3 },
-    hard: { think: 0.1, err: 0.07, dodge: 0.8, gap: 0.14, lead: 0.95, sw: 0.7 }
+    // cmd = the chance that the AI uses a Keeper command at one of its checks (4 checks each second)
+    easy: { think: 0.32, err: 0.36, dodge: 0.18, gap: 0.95, lead: 0.2, sw: 0, cmd: 0.08 },
+    normal: { think: 0.2, err: 0.19, dodge: 0.48, gap: 0.42, lead: 0.6, sw: 0.3, cmd: 0.35 },
+    hard: { think: 0.1, err: 0.07, dodge: 0.8, gap: 0.14, lead: 0.95, sw: 0.7, cmd: 1 }
   };
   G.makeAI = function (diff) {
-    return { d: G.DIFF[diff] || G.DIFF.normal, thinkT: 0.3, strafe: Math.random() < 0.5 ? 1 : -1, strafeT: 1, gapT: 0.6, evT: 0, evx: 0, evy: 0, guardT: 0, windSeen: -1, windMon: null, spSeen: null, nT: 0, ox: 0, oy: 0 };
+    return { d: G.DIFF[diff] || G.DIFF.normal, thinkT: 0.3, strafe: Math.random() < 0.5 ? 1 : -1, strafeT: 1, gapT: 0.6, evT: 0, evx: 0, evy: 0, guardT: 0, windSeen: -1, windMon: null, spSeen: null, nT: 0, ox: 0, oy: 0, cmdT: 0.5 };
   };
 
   function best(aTypes, dTypes) { var m = 0, i, e; for (i = 0; i < aTypes.length; i++) { e = G.eff(aTypes[i], dTypes); if (e > m) m = e; } return m; }
@@ -68,6 +70,42 @@
       case 'lastwaltz': return d < 215;
     }
     return true;
+  }
+
+  // ---- the Keeper commands of the AI ----
+  // true = this is a good moment for the command.
+  function cmdWant(b, side, m, foe, id, d) {
+    var hp = m.hp / m.maxHp, i, n = 0, t = 0, s, mv;
+    switch (id) {
+      case 'rally': return hp < 0.5 || (hp < 0.8 && (m.status === 'toxic' || m.status === 'burn' || m.status === 'poison'));
+      case 'brace':
+        if (m.brace > 0 || !up(foe) || foe.state !== 'wind' || !foe.cur || foe.st > 0.3) return false;
+        mv = foe.cur;
+        if (mv.isSig) return d < 330;
+        return hp < 0.6 && mv.power >= 60 && G.inTele(foe, mv, m, 10);
+      case 'focus': return up(foe) && m.charge >= 65 && m.charge < 100 && sigOK(b, side, m, foe, d);
+      case 'whistle':
+        for (i = 0; i < 4; i++) if (m.cds[i] > 1.5) { n++; t += m.cds[i]; }
+        return up(foe) && n >= 2 && t > 6 && d < 420;
+      case 'quick':
+        if (side.switchCd < 1.5 || hp < 0.2 || !up(foe) || m.state !== 'idle' || matchup(m.d, foe.d) > -1) return false;
+        s = pickSwitch(side, foe, true);
+        return s >= 0 && matchup(side.team[s].d, foe.d) >= matchup(m.d, foe.d) + 1.5;
+    }
+    return false;
+  }
+  function keeperThink(b, side, m, foe, d) {
+    var k = side.keeper, c = side.ctrl, n, C;
+    if (side.cmdCd > 0) return;
+    for (n = 0; n < 2; n++) {
+      C = G.KEEPER.CMDS[k.cmds[n]];
+      if (side.favour < C.cost || !cmdWant(b, side, m, foe, k.cmds[n], d)) continue;
+      if (Math.random() < side.ai.d.cmd) {
+        c.cmd = n;
+        if (k.cmds[n] === 'quick') { c.sw = pickSwitch(side, foe, true); c.swT = 0.6; }
+      }
+      return;
+    }
   }
 
   function scoreMove(b, side, m, foe, mv, d) {
@@ -198,6 +236,8 @@
     if (A.evT > 0) { mx = A.evx; my = A.evy; }
     c.mx = mx; c.my = my;
     c.ax = tx; c.ay = ty;
+
+    if (side.keeper && D.cmd > 0) { A.cmdT -= dt; if (A.cmdT <= 0) { A.cmdT = 0.25; keeperThink(b, side, m, foe, d); } }
 
     // ---- decisions ----
     A.thinkT -= dt;

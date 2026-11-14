@@ -3,8 +3,9 @@
      'title'  the main menu
      'team'   the Beast screen. js/team.js draws it. It has 3 views: 'solo', 'online', 'beasts'
      ''       no menu screen (battle and result)
-   One overlay can be on top of a screen: 'settings', 'pause', 'daily' (Daily Proving) or 'ledger' (Keeper's ledger).
-   js/progress.js draws the contents of 'daily' and 'ledger'.
+   One overlay can be on top of a screen: 'settings', 'pause', 'daily' (Daily Proving), 'ledger' (Keeper's ledger)
+   or 'keeper' (the guild and the commands of the player).
+   js/progress.js draws the contents of 'daily' and 'ledger'. js/keeperui.js draws 'keeper'.
    js/main.js starts this file with G.UI.init(hooks). The hooks are functions of the game files (the list is in js/state.js).
    To add a screen: add its element to index.html and show it in UI.go. To add a Settings tab: add a button to #stabs
    and a section with the id "tab-<name>". */
@@ -13,7 +14,7 @@
   var G = window.G, SET = G.SET, K = G.KEYS;
   function $(id) { return document.getElementById(id); }
   var UI = G.UI = { screen: '', view: 'solo', overlay: '', feature: null };
-  var hooks = {}, under = '', featT = 0, pauseOpt = {}, armed = false, armT = 0, OVER = ['settings', 'pause', 'daily', 'ledger'];
+  var hooks = {}, under = '', featT = 0, pauseOpt = {}, armed = false, armT = 0, OVER = ['settings', 'pause', 'daily', 'ledger', 'keeper'];
 
   // ---- screens ------------------------------------------------------------
   // Show a screen. The live 3D canvas and the graphics notice move into the screen that shows.
@@ -49,8 +50,9 @@
     showOverlay('settings');
     $('setclose').focus();
   };
-  // Open the Daily Proving or the Keeper's ledger. js/progress.js draws them before this call.
-  UI.open = function (name) { under = ''; showOverlay(name); };
+  // Open the Daily Proving, the Keeper's ledger or the Keeper selection. The game file draws it before this call.
+  // The Keeper selection can open from the Daily Proving: Close then goes back to the Daily Proving.
+  UI.open = function (name) { under = name === 'keeper' && UI.overlay === 'daily' ? 'daily' : ''; showOverlay(name); };
   // Open the pause menu. o = { title, note, restart (show the Restart button), quit (text of the Quit button),
   // ask (text for the second click on Quit; empty = one click is sufficient) }
   UI.pause = function (o) {
@@ -63,7 +65,7 @@
   };
   // Close the top overlay. Returns true if an overlay was open.
   UI.back = function () {
-    if (UI.overlay === 'settings') {
+    if (UI.overlay === 'settings' || UI.overlay === 'keeper') {
       showOverlay(under); under = '';
       if (UI.overlay === 'pause') $('pset').focus();
       return true;
@@ -231,7 +233,8 @@
     $('tset').onclick = function () { G.sfx('ui'); UI.settings(); };
     $('tdaily').onclick = function () { G.sfx('ui'); hooks.daily(); };
     $('tledger').onclick = function () { G.sfx('ui'); hooks.ledger(); };
-    $('dclose').onclick = $('lclose').onclick = function () { G.sfx('ui'); UI.back(); };
+    $('dclose').onclick = $('lclose').onclick = $('kpclose').onclick = function () { G.sfx('ui'); UI.back(); };
+    $('keepbtn').onclick = $('dkeep').onclick = function () { G.sfx('ui'); hooks.keeper(); };
     $('tfeat').onclick = function () { G.sfx('ui'); UI.go('team', 'beasts'); hooks.show(UI.feature); };
     $('tver').textContent = window.AB_V ? 'Version ' + window.AB_V : '';
     // Beast screen

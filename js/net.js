@@ -231,7 +231,7 @@
     if (m.iframes > 0) fl |= 1; if (m.guarding) fl |= 2; if (m.guardT < 0.18) fl |= 4; if (m.guardLock) fl |= 8;
     if (m.slowT > 0) fl |= 16; if (m.bulwark > 0) fl |= 32; if (m.cyclone > 0) fl |= 64; if (m.veil > 0) fl |= 128;
     if (m.hidden) fl |= 256; if (m.sp) fl |= 512; if (m.sp && m.sp.untarget) fl |= 1024; if (m.hitFlash > 0) fl |= 2048;
-    if (m.moving) fl |= 4096; if (m.conf > 0) fl |= 8192; if (m.ultT > 0) fl |= 16384;
+    if (m.moving) fl |= 4096; if (m.conf > 0) fl |= 8192; if (m.ultT > 0) fl |= 16384; if (m.brace > 0) fl |= 32768;
     return {
       x: r1(m.x), y: r1(m.y), z: r1(m.z), f: r2(m.face), s: STATES.indexOf(m.state), st: r2(m.st), sm: r2(m.stMax), c: curIdx(m),
       aa: r2(m.aimA), ax: r1(m.aimX), ay: r1(m.aimY), fl: fl, gm: Math.round(m.guardM), dc: r2(Math.max(0, m.dodgeCd)),
@@ -245,7 +245,7 @@
       side = b.sides[si];
       var tm = [];
       for (i = 0; i < side.team.length; i++) { m = side.team[i]; tm.push([Math.round(m.hp), Math.round(m.charge), m.fainted ? 1 : 0, STATUS.indexOf(m.status), m.dealt, m.kos]); }
-      out.S.push({ a: side.active, sc: r1(Math.max(0, side.switchCd)), tm: tm, m: monFull(side.team[side.active]) });
+      out.S.push({ a: side.active, sc: r1(Math.max(0, side.switchCd)), fv: Math.round(side.favour), cc: r1(Math.max(0, side.cmdCd)), tm: tm, m: monFull(side.team[side.active]) });
     }
     for (i = 0; i < b.proj.length; i++) { p = b.proj[i]; out.P.push([p.id, r1(p.x), r1(p.y), Math.round(p.vx), Math.round(p.vy), p.r, p.type, p.decoy ? p.sprite : 0, p.frozen > 0 ? 1 : 0, r2(p.age)]); }
     for (i = 0; i < b.zones.length; i++) { p = b.zones[i]; out.Z.push([r1(p.x), r1(p.y), p.radius, r1(p.t), p.dur, p.side, p.kind]); }
@@ -280,6 +280,7 @@
       if (prevAct[si] === a && Math.abs(nx - rx) + Math.abs(ny - ry) < 220) { m.px = rx; m.py = ry; } else { m.px = nx; m.py = ny; }
       m.x = nx; m.y = ny; prevAct[si] = a;
       side.active = a; side.switchCd = num(ss.sc, 0, 60, 0);
+      side.favour = num(ss.fv, 0, 100, 0); side.cmdCd = num(ss.cc, 0, 60, 0);
       m.z = num(F.z, 0, 400, 0); m.face = num(F.f, -10, 10, 0);
       m.state = STATES[F.s] || 'idle'; m.st = num(F.st, -1, 60, 0); m.stMax = num(F.sm, 0.01, 60, 1);
       m.cur = F.c === -1 ? m.d.sigMove : (m.d.moves[F.c] || null);
@@ -288,7 +289,7 @@
       m.iframes = fl & 1 ? 1 : 0; m.guarding = !!(fl & 2); m.guardT = fl & 4 ? 0 : 1; m.guardLock = !!(fl & 8);
       m.slowT = fl & 16 ? 1 : 0; m.bulwark = fl & 32 ? 1 : 0; m.cyclone = fl & 64 ? 1 : 0; m.veil = fl & 128 ? 1 : 0;
       m.hidden = !!(fl & 256); m.sp = fl & 512 ? { untarget: !!(fl & 1024) } : null; m.hitFlash = fl & 2048 ? 0.1 : 0;
-      m.moving = !!(fl & 4096); m.conf = fl & 8192 ? 1 : 0; m.ultT = fl & 16384 ? 1 : 0;
+      m.moving = !!(fl & 4096); m.conf = fl & 8192 ? 1 : 0; m.ultT = fl & 16384 ? 1 : 0; m.brace = fl & 32768 ? 1 : 0;
       if (m.state === 'special' && !m.sp) m.sp = { untarget: false };
       m.guardM = num(F.gm, 0, 100, 100); m.dodgeCd = num(F.dc, 0, 10, 0);
       if (Array.isArray(F.sg)) { m.stages.atk = num(F.sg[0], -4, 4, 0); m.stages.def = num(F.sg[1], -4, 4, 0); m.stages.spa = num(F.sg[2], -4, 4, 0); m.stages.spd = num(F.sg[3], -4, 4, 0); m.stages.spe = num(F.sg[4], -4, 4, 0); }

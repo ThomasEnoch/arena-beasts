@@ -1,9 +1,9 @@
 /* Arena Beasts - the battle flow, the result screen, the fixed-step game loop and the start of the game.
-   This is the last of the 5 game files (the list is in js/state.js). The shared state is G.APP.
+   This is the last of the game files (the list is in js/state.js). The shared state is G.APP.
    The title screen, the Settings screen and the pause menu are in js/ui.js. */
 (function () {
   'use strict';
-  var G = window.G, A = G.APP, R = G.R, Net = G.Net, Sync = G.NetSync, UI = G.UI, L = G.LEDGER, $ = A.$;
+  var G = window.G, A = G.APP, R = G.R, Net = G.Net, Sync = G.NetSync, UI = G.UI, L = G.LEDGER, KP = G.KEEPER, $ = A.$;
   var result = $('result'), ui = A.ui;
   var acc = 0, last = 0, STEP = 1 / 60, endT = 0, outEv = [], stepN = 0, hiddenLast = 0;
 
@@ -12,10 +12,12 @@
   // ---- battle flow --------------------------------------------------------
   // a, b = the 2 teams (6 Beast ids each). m = 'solo', 'host' or 'guest'.
   // o (optional) = { daily: date of a Daily Proving that counts, practice: date of a Daily Proving practice battle,
-  //                  seed: number of the arena, diff: difficulty of the AI }
+  //                  seed: number of the arena, diff: difficulty of the AI,
+  //                  keepers: the Keepers of the 2 sides (default: the Keeper of the player and a random Keeper) }
   function startBattle(a, b, m, names, o) {
-    var battle = A.battle = new G.Battle(a, b, { names: names });
     o = o || {};
+    var kp = A.lastKeepers = o.keepers || [L.keeper(), KP.random()];
+    var battle = A.battle = new G.Battle(a, b, { names: names, keepers: kp });
     A.mode = m;
     A.daily = o.daily || null; A.practice = o.practice || null; A.autoUsed = false;
     A.rated = m === 'solo' && !o.practice;             // only a solo battle gives marks
@@ -55,10 +57,12 @@
   }
   function soloRematch(newOpponent) {
     if (newOpponent) A.rival = G.TRAINER_NAMES[Math.floor(Math.random() * G.TRAINER_NAMES.length)];
-    startBattle(A.lastTeams[0], newOpponent ? A.shuffled().slice(0, 6) : A.lastTeams[1], 'solo', ['You', A.rival]);
+    // the same opponent keeps its Keeper
+    startBattle(A.lastTeams[0], newOpponent ? A.shuffled().slice(0, 6) : A.lastTeams[1], 'solo', ['You', A.rival], { keepers: [L.keeper(), newOpponent ? KP.random() : A.lastKeepers[1]] });
   }
   function teamTable(side) {
-    return '<div class="rt"><h3>' + A.cleanName(side.name, 'Player') + '</h3>' + side.team.map(function (m) {
+    var guild = side.keeper ? ' <small>' + KP.GUILDS[side.keeper.guild].name + '</small>' : '';
+    return '<div class="rt"><h3>' + A.cleanName(side.name, 'Player') + guild + '</h3>' + side.team.map(function (m) {
       return '<div class="rr' + (m.fainted ? ' out' : '') + '"><span>' + m.d.name + '</span><span>' + (m.fainted ? 'Fainted' : Math.ceil(m.hp / m.maxHp * 100) + '% HP') + '</span><span>' + m.dealt + ' dmg</span><span>' + m.kos + ' KO</span></div>';
     }).join('') + '</div>';
   }
@@ -184,13 +188,14 @@
 
   // ---- start of the game --------------------------------------------------
   A.initTeam();
+  A.initKeeper();
   A.initLobby();
   A.initProgress();
   UI.init({
     view: A.setView, back: A.backFromTeam, show: A.showDetail, gfx: function () { /* the preview builds its models again by itself */ },
     resume: function () { ui.paused = false; A.keys = {}; },
     restart: function () { if (A.practice) A.startDaily(true); else if (A.mode === 'solo' && !A.daily && A.lastTeams) soloRematch(false); },
-    quit: quitBattle, daily: A.openDaily, ledger: A.openLedger
+    quit: quitBattle, daily: A.openDaily, ledger: A.openLedger, keeper: A.openKeeper
   });
   A.refresh();
   // First screen: the title. With a room link, or after the host loaded the page again: the online view.

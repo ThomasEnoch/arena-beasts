@@ -63,6 +63,30 @@ The crest of each guild is the logo of its element in the game.
 
 A Beast with two elements is the work of two guilds, or of one maker who learned two crafts.
 
+### The Keeper in the arena
+A Keeper does not fight. A Keeper stands at the edge of the arena and speaks for one guild.
+
+- **The crowd.** The people of Caldmoor fill the stands at each Proving. They give their favour to the Keeper whose Beasts fight well. They also give favour to a Keeper whose Beast falls, because the city does not like a one-sided Proving.
+- **The commands.** A Keeper can call a command when the crowd gives enough favour. The rules of the arena permit 2 commands for each Keeper in one Proving.
+- **The guild rule.** Each guild brings one custom of its craft into the arena.
+
+| Guild | Guild rule | The custom |
+|---|---|---|
+| Kilnwrights | Kiln heat | A kiln is hottest just before the work is done. |
+| Tidewardens | Turn of the tide | A crew changes the watch with the tide, without a pause. |
+| Greenhands | Green hand | A gardener mends a little each hour. |
+| Sparkwrights | Live wire | A wire that is always live charges all that it touches. |
+| Coldglaziers | Clear ice | A crystal cutter waits for the one correct moment. |
+| Quarrymen | Bedrock | A wall on bedrock does not move. |
+| Windcallers | Tailwind | A sail maker always knows where the wind goes. |
+| Apothecaries | Antidote | Each apothecary carries the cure for the poisons of the guild. |
+| Lensgrinders | Fine gears | A good clock loses no second. |
+| Lamplighters | Last light | The watch keeps one lamp lit until the morning. |
+| Smiths of Anvil Hall | Tempered | Tempered iron bends before it breaks. |
+| Pitwrights | Pit favourite | The dock crews fill half of the stands. |
+
+The numbers of the favour, the commands and the guild rules are in `js/keeper.js`.
+
 ---
 
 ## 2. The Beasts

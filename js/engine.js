@@ -1,5 +1,6 @@
 /* Arena Beasts - battle engine. No DOM access: this file also runs in Node for headless tests.
-   The engine advances in fixed steps. It reports visuals and sounds through the b.ev event list. */
+   The engine advances in fixed steps. It reports visuals and sounds through the b.ev event list.
+   The Keeper of a side (crowd favour, 2 commands, 1 guild rule) has its numbers and texts in js/keeper.js. */
 (function (root) {
   'use strict';
   var G = root.G;
@@ -10,6 +11,7 @@
   var SDUR = { burn: 8, poison: 8, toxic: 8, para: 6, chill: 4, sleep: 1.5 };
   var STATS = ['atk', 'def', 'spa', 'spd', 'spe'];
   var MAXSTAGE = 4;
+  var KP = G.KEEPER, FAV = KP.FAV, RU = KP.RULE;
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function angDiff(a, b) { var d = a - b; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
@@ -68,19 +70,23 @@
       dodgeCd: 0, iframes: 0, guardM: 100, guarding: false, guardT: 0, guardRegenT: 0, guardLock: false,
       ccImmune: 0, slowT: 0, slowF: 1, rootT: 0, zoneSlow: 1, zs: 1,
       bulwark: 0, cyclone: 0, cycTick: 0, veil: 0, veilHit: false, hidden: false, sp: null,
-      ultT: 0, bulHits: 0, dashHit: false, dashV: 0, dvx: 0, dvy: 0, hitFlash: 0, moving: false, dealt: 0, taken: 0, kos: 0, healUses: 0
+      ultT: 0, bulHits: 0, dashHit: false, dashV: 0, dvx: 0, dvy: 0, hitFlash: 0, moving: false, dealt: 0, taken: 0, kos: 0, healUses: 0,
+      brace: 0, dodgeFav: false, regenAcc: 0
     };
   }
   function resetVolatile(m) {
     for (var i = 0; i < 5; i++) m.stages[STATS[i]] = 0;
     m.conf = 0; m.bulwark = 0; m.cyclone = 0; m.veil = 0; m.veilHit = false; m.hidden = false; m.sp = null; m.cur = null;
-    m.guarding = false; m.slowT = 0; m.rootT = 0; m.kx = m.ky = m.vx = m.vy = 0; m.z = 0; m.iframes = 0; m.zoneSlow = m.zs = 1; m.ultT = 0; m.bulHits = 0;
+    m.guarding = false; m.slowT = 0; m.rootT = 0; m.kx = m.ky = m.vx = m.vy = 0; m.z = 0; m.iframes = 0; m.zoneSlow = m.zs = 1; m.ultT = 0; m.bulHits = 0; m.brace = 0;
   }
-  function mkSide(idx, ids, name) {
+  // keeper = a Keeper record (js/keeper.js), or nothing for a side without a Keeper.
+  // favour = the crowd favour, 0 to 100. cmdCd = seconds until the next command. quick = seconds that Quick call stays on.
+  function mkSide(idx, ids, name, keeper) {
     return {
       idx: idx, name: name, team: ids.map(function (id) { return makeMon(id, idx); }), active: 0, switchCd: 0,
-      ctrl: { mx: 0, my: 0, ax: (AR.x0 + AR.x1) / 2, ay: (AR.y0 + AR.y1) / 2, move: -1, moveT: 0, dodge: false, dodgeT: 0, guard: false, sig: false, sigT: 0, sw: -1, swT: 0 },
-      isAI: false, ai: null
+      ctrl: { mx: 0, my: 0, ax: (AR.x0 + AR.x1) / 2, ay: (AR.y0 + AR.y1) / 2, move: -1, moveT: 0, dodge: false, dodgeT: 0, guard: false, sig: false, sigT: 0, sw: -1, swT: 0, cmd: -1, cmdT: 0 },
+      isAI: false, ai: null,
+      keeper: keeper ? KP.clean(keeper) : null, favour: 0, cmdCd: 0, quick: 0
     };
   }
 
@@ -92,8 +98,8 @@
     this.over = false; this.winner = -1;
     this.proj = []; this.zones = []; this.pend = []; this.ev = [];
     this.weather = null; this.dark = null;
-    var n = opts.names || ['You', 'Rival'];
-    this.sides = [mkSide(0, teamA, n[0]), mkSide(1, teamB, n[1])];
+    var n = opts.names || ['You', 'Rival'], kp = opts.keepers || [];
+    this.sides = [mkSide(0, teamA, n[0], kp[0]), mkSide(1, teamB, n[1], kp[1])];
     this.sendOut(0, 0); this.sendOut(1, 0);
   }
   G.Battle = Battle;
@@ -101,14 +107,15 @@
 
   BP.active = function (si) { var s = this.sides[si]; return s.team[s.active]; };
   BP.msg = function (txt, col) { this.ev.push({ k: 'msg', txt: txt, col: col || '#ffffff' }); };
-  BP.sendOut = function (si, idx) {
+  // fast = the Beast comes in after Quick call
+  BP.sendOut = function (si, idx, fast) {
     var side = this.sides[si], m = side.team[idx];
     side.active = idx;
     resetVolatile(m);
     m.x = m.px = si === 0 ? AR.x0 + 150 : AR.x1 - 150;
     m.y = m.py = (AR.y0 + AR.y1) / 2;
     m.face = si ? PI : 0;
-    m.state = 'enter'; m.st = m.stMax = 0.55;
+    m.state = 'enter'; m.st = m.stMax = fast ? KP.CMDS.quick.enter : 0.55;
     this.ev.push({ k: 'send', side: si, x: m.x, y: m.y, id: m.id });
     this.msg(side.name + ' sent out ' + m.d.name + '!', si ? '#ff9a8a' : '#9ad0ff');
   };
@@ -117,8 +124,10 @@
     this.ev.push({ k: 'recall', side: si, x: old.x, y: old.y });
     if (this.dark && this.dark.side === si) this.dark = null;
     old.state = 'bench'; resetVolatile(old);
-    side.switchCd = 8;
-    this.sendOut(si, idx);
+    var fast = side.quick > 0;
+    side.switchCd = fast ? KP.CMDS.quick.wait : side.keeper && side.keeper.guild === 'Tide' ? RU.tideSwitch : 8;
+    side.quick = 0;
+    this.sendOut(si, idx, fast);
   };
   BP.end = function (w) {
     if (this.over) return;
@@ -134,8 +143,37 @@
       !(m.state === 'special' && m.sp && m.sp.untarget);
   }
   function present(m) { return m && !m.fainted && m.state !== 'enter' && m.state !== 'bench' && m.state !== 'faint'; }
+  // ---- the Keeper: the guild rule of a Beast's side, and the crowd favour ----
+  function guild(b, m) { var k = b.sides[m.side].keeper; return k ? k.guild : ''; }
+  // why (optional) = 'ko', 'fall', 'perfect' or 'dodge': the renderer shows these to the player. m = the Beast at that place.
+  function addFav(b, si, v, m, why) {
+    var s = b.sides[si];
+    if (!s.keeper || b.over) return;
+    if (s.keeper.guild === 'Brawl') v *= RU.brawlFav;
+    s.favour = Math.min(FAV.max, s.favour + v);
+    if (why) b.ev.push({ k: 'fav', side: si, x: m.x, y: m.y, n: Math.round(v), why: why });
+  }
+  // The guild rules and Brace change the damage of a hit. Damage from a status condition or from a zone does not change.
+  function hitMul(b, src, tgt) {
+    var k = 1, g;
+    if (src) {
+      g = guild(b, src);
+      if (g === 'Ember' && src.hp < src.maxHp * RU.emberHp) k *= RU.emberDmg;
+      else if (g === 'Shade' && b.aliveCount(src.side) === 1) k *= RU.shadeDmg;
+    }
+    g = guild(b, tgt);
+    if (g === 'Iron') k *= RU.ironTaken;
+    else if (g === 'Shade' && b.aliveCount(tgt.side) === 1) k *= RU.shadeTaken;
+    if (tgt.brace > 0) k *= KP.CMDS.brace.taken;
+    return k;
+  }
+  // An attack went through a Beast that dodges: favour, one time for each dodge.
+  function dodged(b, m) {
+    if (m.iframes > 0 && !m.dodgeFav) { m.dodgeFav = true; addFav(b, m.side, FAV.dodge, m, 'dodge'); }
+  }
   function addCharge(b, m, v) {
     if (m.charge >= 100 || m.fainted) return;
+    if (guild(b, m) === 'Volt') v *= RU.voltCharge;
     m.charge += v;
     if (m.charge >= 100) { m.charge = 100; b.ev.push({ k: 'ready', side: m.side, x: m.x, y: m.y }); }
   }
@@ -155,7 +193,7 @@
     if (s === 'sleep') {
       if (m.ccImmune > 0 || !setStun(m, 1.5)) return false;
     }
-    m.status = s; m.statusT = SDUR[s]; m.statusTick = 1;
+    m.status = s; m.statusT = SDUR[s] * (s !== 'sleep' && guild(b, m) === 'Venom' ? RU.venomStatus : 1); m.statusTick = 1;
     b.ev.push({ k: 'status', x: m.x, y: m.y, s: s, side: m.side });
     b.msg(m.d.name + ': ' + G.STATUS_NAME[s] + '!', G.STATUS_COL[s]);
     return true;
@@ -199,7 +237,8 @@
     tgt.fainted = true; tgt.hp = 0; tgt.status = null;
     resetVolatile(tgt);
     tgt.state = 'faint'; tgt.st = tgt.stMax = 1.3;
-    if (src) src.kos++;
+    if (src) { src.kos++; addFav(b, src.side, FAV.ko, tgt, 'ko'); }
+    addFav(b, tgt.side, FAV.fall, tgt, 'fall');
     if (b.dark && b.dark.side === tgt.side) b.dark = null;
     b.ev.push({ k: 'faint', x: tgt.x, y: tgt.y, side: tgt.side });
     b.msg(tgt.d.name + ' fainted!', '#ffd27a');
@@ -210,6 +249,7 @@
     tgt.hp -= dmg; tgt.taken += dmg; tgt.hitFlash = 0.12;
     if (src) { src.dealt += dmg; if (!info.noCharge) addCharge(b, src, dmg / tgt.maxHp * 55); }
     if (!info.dot) addCharge(b, tgt, dmg / tgt.maxHp * 40);
+    if (src && !info.dot && src.side !== tgt.side) addFav(b, src.side, dmg / tgt.maxHp * FAV.dmg + (info.eff >= 2 ? FAV.superHit : 0));
     b.ev.push({ k: 'dmg', x: tgt.x, y: tgt.y, dmg: dmg, eff: info.eff === undefined ? 1 : info.eff, crit: !!info.crit, side: tgt.side, dot: info.dot || null, type: info.type || null, big: dmg / tgt.maxHp });
     if (tgt.status === 'sleep' && !info.dot) {
       tgt.status = null;
@@ -219,10 +259,12 @@
   }
   function applyGuard(b, tgt, dmg) {
     if (!tgt.guarding) return dmg;
-    if (tgt.guardT < 0.18) {
+    var g = guild(b, tgt);
+    if (tgt.guardT < (g === 'Frost' ? RU.frostPerfect : 0.18)) {
       b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Perfect guard!', col: '#fff7b0' });
       b.ev.push({ k: 'guard', x: tgt.x, y: tgt.y, perfect: true });
       addCharge(b, tgt, 4);
+      addFav(b, tgt.side, FAV.perfect, tgt, 'perfect');
       return dmg * 0.1;
     }
     tgt.guardM -= Math.min(50, dmg / tgt.maxHp * 300); tgt.guardRegenT = 1.5;
@@ -231,13 +273,13 @@
       tgt.guardM = 0; tgt.guardLock = true; tgt.guarding = false;
       if (setStun(tgt, 1.0)) b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Guard broken!', col: '#ff8a8a' });
     }
-    return dmg * 0.35;
+    return dmg * (g === 'Stone' ? RU.stoneGuard : 0.35);
   }
 
   // A normal move hits tgt. Returns damage, or -1 when the hit did not connect.
   function hit(b, src, tgt, mv) {
     if (!present(tgt)) return -1;
-    if (!targetable(tgt)) { b.ev.push({ k: 'miss', x: tgt.x, y: tgt.y }); return -1; }
+    if (!targetable(tgt)) { b.ev.push({ k: 'miss', x: tgt.x, y: tgt.y }); dodged(b, tgt); return -1; }
     var e = G.eff(mv.type, tgt.d.types), dmg = 0, guarded = tgt.guarding;
     if (mv.power > 0 && e === 0) { b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'No effect', col: '#b8b8c8' }); return -1; }
     if (mv.power === 0 && guarded) { b.ev.push({ k: 'text', x: tgt.x, y: tgt.y, txt: 'Blocked', col: '#b8d8ff' }); b.ev.push({ k: 'guard', x: tgt.x, y: tgt.y }); return -1; }
@@ -255,6 +297,7 @@
       dmg *= 0.92 + Math.random() * 0.08;
       var veilHit = src.veil > 0 && !src.veilHit;
       if (veilHit) dmg *= 1.6;
+      dmg *= hitMul(b, src, tgt);
       dmg = applyGuard(b, tgt, dmg);
       if (tgt.bulwark > 0) { dmg *= 0.3; temper(b, tgt); }
       dealDamage(b, src, tgt, dmg, { eff: e, crit: crit, type: mv.type });
@@ -296,9 +339,9 @@
   // Signature power damage: a share of the target's maximum HP.
   function sigHit(b, src, tgt, pct, type) {
     if (!present(tgt)) return -1;
-    if (!targetable(tgt)) { b.ev.push({ k: 'miss', x: tgt.x, y: tgt.y }); return -1; }
+    if (!targetable(tgt)) { b.ev.push({ k: 'miss', x: tgt.x, y: tgt.y }); dodged(b, tgt); return -1; }
     var e = G.eff(type, tgt.d.types), m = e === 0 ? 0.5 : Math.sqrt(e);
-    var dmg = tgt.maxHp * pct * m;
+    var dmg = tgt.maxHp * pct * m * hitMul(b, src, tgt);
     dmg = applyGuard(b, tgt, dmg);
     if (tgt.bulwark > 0) { dmg *= 0.3; temper(b, tgt); }
     dealDamage(b, src, tgt, dmg, { eff: e === 0 ? 0.5 : e, noCharge: true, type: type });
@@ -731,7 +774,7 @@
     m.aimA = m.face = a;
     m.aimX = clamp(m.x + Math.cos(a) * ad, AR.x0, AR.x1); m.aimY = clamp(m.y + Math.sin(a) * ad, AR.y0, AR.y1);
     m.cur = mv; m.curI = i; m.state = 'wind'; m.st = m.stMax = mv.wind / 1000; m.windSeq++;
-    if (i >= 0) m.cds[i] = mv.cd;
+    if (i >= 0) m.cds[i] = mv.cd * (guild(b, m) === 'Mind' ? RU.mindCd : 1);
     else { m.charge = 0; b.msg(m.d.name + ' uses ' + mv.name + '!', '#ffe27a'); }
     b.ev.push({ k: 'cast', side: side.idx, name: mv.name, type: mv.type, sig: !!mv.isSig, x: m.x, y: m.y });
   }
@@ -778,7 +821,7 @@
       var dx = c.mx, dy = c.my, l = Math.sqrt(dx * dx + dy * dy);
       if (l < 0.01) { dx = -Math.cos(m.face); dy = -Math.sin(m.face); l = 1; }
       m.dvx = dx / l * 620; m.dvy = dy / l * 620;
-      m.state = 'dodge'; m.st = m.stMax = 0.2; m.iframes = 0.27; m.dodgeCd = 1.7;
+      m.state = 'dodge'; m.st = m.stMax = 0.2; m.iframes = 0.27; m.dodgeCd = guild(b, m) === 'Gale' ? RU.galeDodge : 1.7; m.dodgeFav = false;
       b.ev.push({ k: 'dodge', side: side.idx, x: m.x, y: m.y });
       return true;
     }
@@ -799,6 +842,12 @@
     if (m.ultT > 0) m.ultT -= dt;
     if (m.rootT > 0) m.rootT -= dt;
     if (m.hitFlash > 0) m.hitFlash -= dt;
+    if (m.brace > 0) m.brace -= dt;
+    if (m.state !== 'enter' && m.hp < m.maxHp && guild(b, m) === 'Bloom') {
+      var rg = Math.min(m.maxHp - m.hp, m.maxHp * RU.bloomRegen * dt);
+      m.hp += rg; m.regenAcc += rg;
+      if (m.regenAcc >= m.maxHp * 0.01) { b.ev.push({ k: 'heal', x: m.x, y: m.y, amt: Math.round(m.regenAcc) }); m.regenAcc = 0; }
+    }
     if (m.conf > 0) { m.conf -= dt; if (m.conf <= 0) { m.conf = 0; b.msg(m.d.name + ' snapped out of it!', '#ffffff'); b.ev.push({ k: 'text', x: m.x, y: m.y, txt: 'Snapped out of it!', col: '#ffffff' }); } }
     if (m.state !== 'enter') addCharge(b, m, 0.5 * dt);
     if (m.status) {
@@ -878,8 +927,45 @@
     }
   }
 
+  // A Keeper command. n = 0 or 1: the place of the command in the Keeper record. Returns true if the command worked.
+  // A command needs favour, a Beast in the arena, and an effect that is not zero.
+  function command(b, side, n) {
+    var k = side.keeper, id = k && k.cmds[n], C = id && KP.CMDS[id], m = side.team[side.active], i, use = false;
+    if (!C || side.cmdCd > 0 || side.favour < C.cost || !present(m)) return false;
+    switch (id) {
+      case 'rally': use = m.hp < m.maxHp || !!m.status || m.conf > 0; break;
+      case 'brace': use = m.brace <= 0; break;
+      case 'focus': use = m.charge < 100; break;
+      case 'whistle': use = m.dodgeCd > 0; for (i = 0; i < 4; i++) if (m.cds[i] > 0) use = true; break;
+      case 'quick': use = side.quick <= 0 && b.aliveCount(side.idx) > 1; break;
+    }
+    if (!use) return false;
+    side.favour -= C.cost; side.cmdCd = FAV.wait;
+    b.ev.push({ k: 'cmd', side: side.idx, id: id, x: m.x, y: m.y });
+    b.msg(side.name + ': ' + C.name + '!', '#ffc83d');
+    switch (id) {
+      case 'rally':
+        heal(b, m, m.maxHp * C.heal);
+        if (m.status === 'sleep' && m.state === 'stun') { m.state = 'idle'; m.ccImmune = 5; }
+        m.status = null; m.conf = 0;
+        break;
+      case 'brace': m.brace = C.time; break;
+      case 'focus': addCharge(b, m, C.charge); break;
+      case 'whistle': m.cds[0] = m.cds[1] = m.cds[2] = m.cds[3] = 0; m.dodgeCd = 0; break;
+      case 'quick': side.switchCd = 0; side.quick = C.time; break;
+    }
+    return true;
+  }
+
   function updSide(b, side, dt) {
     var c = side.ctrl, m = side.team[side.active], o = b.sides[1 - side.idx], foe = o.team[o.active];
+    if (side.keeper) {
+      if (side.cmdCd > 0) side.cmdCd -= dt;
+      if (side.quick > 0) side.quick -= dt;
+      addFav(b, side.idx, FAV.time * dt);
+      // a command that cannot work now stays for a short time (cmdT), for example while the Beast comes in
+      if (c.cmd >= 0) { c.cmdT -= dt; if (command(b, side, c.cmd) || c.cmdT <= 0) c.cmd = -1; }
+    }
     if (side.switchCd > 0) side.switchCd -= dt;
     if (c.moveT > 0) { c.moveT -= dt; if (c.moveT <= 0) c.move = -1; }
     if (c.dodgeT > 0) { c.dodgeT -= dt; if (c.dodgeT <= 0) c.dodge = false; }
@@ -946,7 +1032,7 @@
         P[i] = P[P.length - 1]; P.pop(); continue;
       }
       if (d <= p.r + foe.r && !p.passed) {
-        if (!targetable(foe)) { p.passed = true; b.ev.push({ k: 'miss', x: foe.x, y: foe.y }); continue; }
+        if (!targetable(foe)) { p.passed = true; b.ev.push({ k: 'miss', x: foe.x, y: foe.y }); dodged(b, foe); continue; }
         if (foe.bulwark > 0) {
           p.side = 1 - p.side; p.vx = -p.vx; p.vy = -p.vy; p.src = foe; p.homing = 0; p.aiRoll = false;
           if (p.life < 1.2) p.life = 1.2;

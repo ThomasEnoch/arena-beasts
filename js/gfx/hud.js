@@ -81,6 +81,8 @@ const BTN = HUD.buttons = [];
   BTN.push({ x: 818, y: 498, w: 62, h: 38, act: 'guard', i: 0 });
   BTN.push({ x: 884, y: 498, w: 68, h: 38, act: 'auto', i: 0 });
   BTN.push({ x: 884, y: 424, w: 68, h: 25, act: 'menu', i: 0 });   // opens the pause menu (js/ui.js)
+  BTN.push({ x: 214, y: 424, w: 150, h: 25, act: 'cmd', i: 0 });   // the 2 commands of the Keeper (js/keeper.js)
+  BTN.push({ x: 370, y: 424, w: 150, h: 25, act: 'cmd', i: 1 });
 })();
 HUD.hitButton = function (x, y) {
   for (let i = 0; i < BTN.length; i++) { const b = BTN[i]; if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b; }
@@ -119,6 +121,7 @@ function panel(b, si, dt) {
   for (k in m.stages) { t = m.stages[k]; if (t !== 0 && cx < 318) cx += tag(G.STAT_SHORT[k] + (t > 0 ? ' +' : ' ') + t, X(cx), 46, null, mir, t > 0 ? C.blue : C.bad); }
   if (m.status && cx < 318) cx += tag(G.STATUS_NAME[m.status], X(cx), 46, null, mir, G.STATUS_COL[m.status]);
   if (m.conf > 0 && cx < 318) cx += tag('Confused', X(cx), 46, null, mir, '#e8b8d8');
+  if (m.brace > 0 && cx < 318) cx += tag('Braced', X(cx), 46, null, mir, C.brass);
   // HP bar with a trailing loss marker
   m.shownHp += (m.hp - m.shownHp) * Math.min(1, dt * 4);
   const f = Math.max(0, m.hp / m.maxHp), fs = Math.max(f, m.shownHp / m.maxHp), bw = 266, bx = mir ? W - 82 - bw : 82;
@@ -138,6 +141,13 @@ function panel(b, si, dt) {
     if (i === side.active) { ctx.strokeStyle = C.ivory; ctx.lineWidth = 1; ctx.strokeRect(qx - 1.5, 84.5, 10, 10); }
   }
   txt(side.name, X(88), 94, '700 12.5px ' + SANS, team, al, C.ink, 3.5);
+  // the Keeper of this side: the crest of the guild and the crowd favour
+  if (side.keeper) {
+    const fv = Math.max(0, Math.min(1, side.favour / 100)), fw = 100, fx0 = mir ? W - 248 - fw : 248;
+    G.drawTypeIcon(ctx, side.keeper.guild, X(236), 90, 13);
+    ctx.fillStyle = C.ink; ctx.fillRect(fx0 - 1, 86, fw + 2, 8);
+    ctx.fillStyle = C.brass; if (mir) ctx.fillRect(fx0 + fw * (1 - fv), 87, fw * fv, 6); else ctx.fillRect(fx0, 87, fw * fv, 6);
+  }
 }
 
 function keycap(s, x, y) { txt(s, x, y + 8, '600 10px ' + SANS, C.faint, 'right'); }
@@ -212,6 +222,26 @@ function bottomBar(b, ui) {
   plate(bt.x, bt.y, bt.w, bt.h, C.surf, C.line2);
   lab('Menu', bt.x + 25, bt.y + 16, 9.5, C.ivory, 'center');
   lab('Esc', bt.x + 53, bt.y + 16, 8, C.faint, 'center');
+  // the Keeper of the player: the crowd favour and the 2 commands. A command shows its cost and its key.
+  const kp = side.keeper;
+  if (kp) {
+    const fv = Math.max(0, Math.min(100, side.favour));
+    plate(8, 424, 200, 25, C.plate, C.line2);
+    G.drawTypeIcon(ctx, kp.guild, 21, 436.5, 16);
+    lab('Crowd', 34, 441, 9.5, C.ivory, 'left');
+    ctx.fillStyle = '#0d1626'; rr(84, 432, 88, 9, 4); ctx.fill();
+    if (fv >= 1) { ctx.fillStyle = C.brass; rr(84, 432, 88 * fv / 100, 9, 4); ctx.fill(); }
+    txt('' + (fv | 0), 202, 441, '700 12.5px ' + SANS, C.ivory, 'right');
+    for (i = 0; i < 2; i++) {
+      bt = BTN[15 + i];
+      const kc = G.KEEPER.CMDS[kp.cmds[i]], ok = fv >= kc.cost && side.cmdCd <= 0 && canAct;
+      plate(bt.x, bt.y, bt.w, bt.h, C.surf, ok ? C.brass : C.line);
+      ctx.fillStyle = 'rgba(255,200,61,' + (ok ? 0.24 : 0.1) + ')'; ctx.fillRect(bt.x + 1, bt.y + 1, (bt.w - 2) * Math.min(1, fv / kc.cost), bt.h - 2);
+      txt(kc.name, bt.x + 9, bt.y + 17, fit(kc.name, '600 12.5px ' + SANS, bt.w - 66), ok ? C.ivory : C.muted, 'left');
+      txt('' + kc.cost, bt.x + bt.w - 28, bt.y + 17, '700 12.5px ' + SANS, ok ? C.brass : C.faint, 'right');
+      txt(G.KEYS.text('cmd' + (i + 1), 1), bt.x + bt.w - 7, bt.y + 16, '600 10px ' + SANS, C.faint, 'right');
+    }
+  }
 }
 
 function topCentre(b, dt) {
@@ -318,7 +348,7 @@ HUD.draw = function (b, ui, dt, proj, bars) {
   panel(b, 0, dt); panel(b, 1, dt);
   topCentre(b, dt);
   bottomBar(b, ui);
-  if (ui.note) lab(ui.note, 12, 442, 8.5, C.muted, 'left');
+  if (ui.note) lab(ui.note, 876, 441, 8.5, C.muted, 'right');
   if (b.intro > 0) {
     a = Math.min(1, b.intro / 0.3);
     ctx.globalAlpha = a;
@@ -326,6 +356,7 @@ HUD.draw = function (b, ui, dt, proj, bars) {
     ctx.fillStyle = C.brassDim; ctx.fillRect(-400, 218, W + 800, 1); ctx.fillRect(-400, 301, W + 800, 1);
     txt(b.sides[0].name + '  vs  ' + b.sides[1].name, 480, 262, '700 32px ' + SANS, C.ivory, 'center');
     lab('Arena: ' + HUD.theme, 480, 288, 12, C.brass, 'center');
+    if (b.sides[0].keeper && b.sides[1].keeper) lab(G.KEEPER.GUILDS[b.sides[0].keeper.guild].name + '  ·  ' + G.KEEPER.GUILDS[b.sides[1].keeper.guild].name, 480, 236, 10, C.muted, 'center');
     ctx.globalAlpha = 1;
   }
   if (banner) {

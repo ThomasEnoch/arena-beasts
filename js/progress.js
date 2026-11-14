@@ -2,7 +2,7 @@
    screen and the reward lines of the result screen. The rules and the stored data are in js/ledger.js (G.LEDGER). */
 (function () {
   'use strict';
-  var G = window.G, A = G.APP, UI = G.UI, L = G.LEDGER, $ = A.$;
+  var G = window.G, A = G.APP, UI = G.UI, L = G.LEDGER, KP = G.KEEPER, $ = A.$;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   function dateLabel(date) { var p = date.split('-'); return (+p[2]) + ' ' + MONTHS[+p[1] - 1].slice(0, 3) + ' ' + p[0]; }
@@ -36,7 +36,8 @@
   }
   function setup(date) {
     var r = rng(hash('arena-beasts-proving-' + date));
-    return { date: date, mine: pick6(r), foe: pick6(r), name: G.TRAINER_NAMES[Math.floor(r() * G.TRAINER_NAMES.length)], arena: Math.floor(r() * 9973) };
+    // The Keeper of the opponent is the last value from the date, so that the values before it do not change.
+    return { date: date, mine: pick6(r), foe: pick6(r), name: G.TRAINER_NAMES[Math.floor(r() * G.TRAINER_NAMES.length)], arena: Math.floor(r() * 9973), keeper: KP.random(r) };
   }
   // The result as text for other people. It shows no detail of the battle.
   function shareText(date, d) {
@@ -60,9 +61,9 @@
     var date = L.today(), s = setup(date), d = L.daily(date), R = L.RULES;
     $('ddate').textContent = dateLabel(date);
     fillTeam($('dmine'), s.mine); fillTeam($('dfoe'), s.foe);
-    $('dfoen').textContent = 'Opponent: ' + s.name;
+    $('dfoen').textContent = 'Opponent: ' + s.name + ' · ' + KP.GUILDS[s.keeper.guild].name;
     $('drule').textContent = d ? 'Your try of today is used. A new Proving starts tomorrow. A practice battle gives no marks.'
-      : 'You have one try. All players get this team and this opponent today. If you leave the battle, it is a defeat. ' +
+      : 'You have one try. All players get this team and this opponent today. Your Keeper is your own selection. If you leave the battle, it is a defeat. ' +
         'A victory gives ' + R.dailyWin + ' marks and opens the stories of your 6 Beasts. A defeat gives ' + R.dailyLoss + ' marks.';
     $('dres').classList.toggle('hidden', !d);
     if (d) $('dshare').textContent = shareText(date, d);
@@ -73,7 +74,7 @@
   function startDaily(practice) {
     var date = L.today(), s = setup(date);
     if (!practice && !L.dailyStart(date)) { drawDaily(); return; }   // the try is used
-    A.startBattle(s.mine, s.foe, 'solo', ['You', s.name], { daily: practice ? null : date, practice: practice ? date : null, seed: s.arena, diff: 'normal' });
+    A.startBattle(s.mine, s.foe, 'solo', ['You', s.name], { daily: practice ? null : date, practice: practice ? date : null, seed: s.arena, diff: 'normal', keepers: [L.keeper(), s.keeper] });
   }
   function openDaily() { drawDaily(); UI.open('daily'); }
 

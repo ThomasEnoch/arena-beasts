@@ -8,16 +8,17 @@
    - The Daily Proving: one battle for each date, the same for all players. One try. Each try is one stamp.
      A day without play costs nothing: the stamps are a total, not a row that can break.
    - An unlock gives a new option, not more power. Online play has all Beasts open.
+   - The ledger also keeps the Keeper of the player: 1 guild and 2 commands (js/keeper.js). All of them are open from the start.
    This file has no page code, so that test/ledger.js can run it without a browser. */
 (function () {
   'use strict';
-  var G = globalThis.G = globalThis.G || {};
+  var G = globalThis.G = globalThis.G || {}, KP = G.KEEPER;
   var STORE = 'ab_ledger';
   var START = ['kilnhound', 'mercurystag', 'resonancewhale', 'solarisscarab', 'teslajelly', 'basaltgorilla', 'coralgolem', 'chandeliermoth'];
   var RULES = { win: { easy: 2, normal: 3, hard: 4 }, loss: 1, dailyWin: 5, dailyLoss: 3, key: 3, startKeys: 1 };
   var S = null, listeners = [];
 
-  function fresh() { return { v: 1, beasts: START.slice(), stories: [], marks: 0, prog: 0, keys: RULES.startKeys, battles: 0, wins: 0, daily: {} }; }
+  function fresh() { return { v: 1, beasts: START.slice(), stories: [], marks: 0, prog: 0, keys: RULES.startKeys, battles: 0, wins: 0, daily: {}, keeper: KP.clean(null) }; }
   function int(v, max) { return typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(max, Math.floor(v))) : 0; }
   function ids(list) {
     var out = [], seen = {};
@@ -32,6 +33,7 @@
     s.stories = ids(o.stories);
     s.marks = int(o.marks, 1e6); s.prog = int(o.prog, RULES.key - 1); s.keys = int(o.keys, 99);
     s.battles = int(o.battles, 1e6); s.wins = int(o.wins, s.battles);
+    s.keeper = KP.clean(o.keeper);
     if (o.daily && typeof o.daily === 'object') for (k in o.daily) {
       d = o.daily[k];
       if (/^\d{4}-\d\d-\d\d$/.test(k) && d && typeof d === 'object') s.daily[k] = { r: d.r === 'W' ? 'W' : 'L', t: int(d.t, 3600), left: int(d.left, 6), open: !!d.open };
@@ -91,6 +93,9 @@
       changed();
       return out;
     },
+    // ---- the Keeper of the player: { guild, cmds: [2 commands] } ----
+    keeper: function () { return { guild: S.keeper.guild, cmds: S.keeper.cmds.slice() }; },
+    setKeeper: function (k) { S.keeper = KP.clean(k); changed(); },
     // ---- Daily Proving ----
     daily: function (date) { return S.daily[date || today()] || null; },
     days: function () { return S.daily; },

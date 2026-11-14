@@ -255,6 +255,16 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
 #dres { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 #dshare, .rshare { margin: 0; padding: 10px 14px; background: var(--panel); border-radius: var(--r); font: 500 15px/1.5 var(--font); white-space: pre-wrap; text-align: left; color: var(--text); }
 .dbtn { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+/* ---- Keeper: the guild and the 2 commands (js/keeperui.js) ---- */
+#kpcmds, #kpguilds { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 8px; }
+.kcard { display: flex; flex-direction: column; gap: 3px; padding: 9px 12px 10px; background: var(--panel); border: 2px solid var(--line); border-radius: var(--r); text-align: left; color: var(--text); }
+.kcard:hover { border-color: #fff; }
+.kcard.on { border-color: var(--hi); box-shadow: 0 0 0 2px var(--hi); }
+.kcard b { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+.kcard b em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 600; color: var(--hi2); white-space: nowrap; }
+.kcard i { font-style: normal; font-size: 13px; font-weight: 600; color: var(--hi2); }
+.kcard small { font-size: 13px; line-height: 1.35; color: var(--dim); }
+.kcard .tb { width: 22px; height: 22px; flex: none; }
 /* Keeper's ledger */
 #lbars { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .lstat { padding: 9px 12px 11px; background: var(--panel); border-radius: var(--r); }
@@ -301,6 +311,7 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
 .rbox p { margin: 6px 0 16px; color: var(--sub); font-size: 15px; text-transform: capitalize; }
 .rcols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; text-align: left; }
 .rt h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; }
+.rt h3 small { margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--sub); }
 .rr { display: grid; grid-template-columns: 1.4fr 1fr 1fr .7fr; gap: 6px; padding: 7px 10px; margin-bottom: 4px; background: var(--panel2); border-radius: 8px; font-size: 14px; }
 .rr span:first-child { font-weight: 600; }
 .rr.out { opacity: .55; }
@@ -357,3 +368,9 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 3p
 .tbtn.new { border-color: var(--hi); }
 .rbox { max-height: 96vh; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .rbox .rshare { background: var(--bg); }
+/* narrow windows: the team and the buttons of the Beast screen are on 2 lines */
+@media (max-width: 980px) {
+  #menu footer { flex-wrap: wrap; row-gap: 6px; }
+  #teamwrap { flex: 1 1 100%; }
+  #opts { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
+}

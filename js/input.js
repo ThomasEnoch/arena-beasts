@@ -15,6 +15,7 @@
     else if (name === 'dodge') { c.dodge = true; c.dodgeT = 0.2; }
     else if (name === 'sig') { c.sig = true; c.sigT = 0.35; }
     else if (name === 'sw') { if (i >= 0 && i < 6 && s.team[i] && !s.team[i].fainted && i !== s.active) { c.sw = i; c.swT = 0.6; } }
+    else if (name === 'cmd') { if (i === 0 || i === 1) { c.cmd = i; c.cmdT = 0.6; } }   // a Keeper command (js/keeper.js)
   }
   // One action of this player.
   function act(name, i) {
@@ -69,6 +70,8 @@
     else if (a in MOVEI) act('move', MOVEI[a]);
     else if (a in SWI) act('sw', SWI[a]);
     else if (a === 'sig') act('sig', 0);
+    else if (a === 'cmd1') act('cmd', 0);
+    else if (a === 'cmd2') act('cmd', 1);
     else if (a === 'dodge') act('dodge', 0);
     else if (a === 'swNext') stepPick(1);
     else if (a === 'swPrev') stepPick(-1);
